@@ -2,6 +2,12 @@
 
 An open-source AI image generation studio powered by [Muapi.ai](https://muapi.ai). Generate stunning images using state-of-the-art models like Flux Schnell, Flux Dev, Nano Banana Pro, and more — all from a sleek, modern interface.
 
+![Studio Preview](docs/assets/studio_view.webp)
+
+## 🎥 Demo
+
+https://github.com/Anil-matcha/Open-Higgsfield-AI/raw/main/docs/assets/demo.mp4
+
 ## ✨ Features
 
 - **Multi-Model Support** — Switch between 20+ AI image generation models (Flux, Nano Banana, Ideogram, Midjourney, SDXL, and more)
