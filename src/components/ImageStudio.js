@@ -4,7 +4,7 @@ import { AuthModal } from './AuthModal.js';
 
 export function ImageStudio() {
     const container = document.createElement('div');
-    container.className = 'w-full h-full flex flex-col items-center justify-center bg-app-bg relative p-4 md:p-6 overflow-hidden';
+    container.className = 'w-full h-full flex flex-col items-center justify-center bg-app-bg relative p-4 md:p-6 overflow-y-auto custom-scrollbar overflow-x-hidden';
 
     // --- State ---
     const defaultModel = t2iModels[0];
@@ -78,19 +78,16 @@ export function ImageStudio() {
     const topRow = document.createElement('div');
     topRow.className = 'flex items-start gap-5 px-2';
 
-    topRow.innerHTML = `
-        <div class="p-2 md:p-3 bg-white/5 rounded-xl md:rounded-2xl text-secondary mt-1 border border-white/5 hidden sm:block">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-        </div>
-    `;
+    topRow.innerHTML = ``;
 
     const textarea = document.createElement('textarea');
     textarea.placeholder = 'Describe the scene you imagine';
-    textarea.className = 'flex-1 bg-transparent border-none text-white text-base md:text-xl placeholder:text-muted focus:outline-none resize-none pt-2.5 leading-relaxed min-h-[40px]';
+    textarea.className = 'flex-1 bg-transparent border-none text-white text-base md:text-xl placeholder:text-muted focus:outline-none resize-none pt-2.5 leading-relaxed min-h-[40px] max-h-[150px] md:max-h-[250px] overflow-y-auto custom-scrollbar';
     textarea.rows = 1;
     textarea.oninput = () => {
         textarea.style.height = 'auto';
-        textarea.style.height = textarea.scrollHeight + 'px';
+        const maxHeight = window.innerWidth < 768 ? 150 : 250;
+        textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
     };
 
     topRow.appendChild(textarea);
