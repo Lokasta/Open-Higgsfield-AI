@@ -1,6 +1,7 @@
 import { muapi } from '../lib/muapi.js';
-import { t2vModels, getAspectRatiosForVideoModel, getDurationsForModel, getResolutionsForVideoModel } from '../lib/models.js';
+import { t2vModels, getAspectRatiosForVideoModel, getDurationsForModel, getResolutionsForVideoModel, i2vModels, getAspectRatiosForI2VModel, getDurationsForI2VModel, getResolutionsForI2VModel } from '../lib/models.js';
 import { AuthModal } from './AuthModal.js';
+import { createUploadPicker } from './UploadPicker.js';
 
 export function VideoStudio() {
     const container = document.createElement('div');
@@ -14,6 +15,13 @@ export function VideoStudio() {
     let selectedDuration = defaultModel.inputs?.duration?.default || 5;
     let selectedResolution = defaultModel.inputs?.resolution?.default || '';
     let dropdownOpen = null;
+    let uploadedImageUrl = null;
+    let imageMode = false; // false = t2v models, true = i2v models
+
+    const getCurrentModels = () => imageMode ? i2vModels : t2vModels;
+    const getCurrentAspectRatios = (id) => imageMode ? getAspectRatiosForI2VModel(id) : getAspectRatiosForVideoModel(id);
+    const getCurrentDurations = (id) => imageMode ? getDurationsForI2VModel(id) : getDurationsForModel(id);
+    const getCurrentResolutions = (id) => imageMode ? getResolutionsForI2VModel(id) : getResolutionsForVideoModel(id);
 
     // ==========================================
     // 1. HERO SECTION
@@ -38,7 +46,7 @@ export function VideoStudio() {
              </div>
         </div>
         <h1 class="text-2xl sm:text-4xl md:text-7xl font-black text-white tracking-widest uppercase mb-4 selection:bg-primary selection:text-black text-center px-4">Video Studio</h1>
-        <p class="text-secondary text-sm font-medium tracking-wide opacity-60">Create stunning AI videos from text in seconds</p>
+        <p class="text-secondary text-sm font-medium tracking-wide opacity-60">Animate images into stunning AI videos with motion effects</p>
     `;
     container.appendChild(hero);
 
@@ -55,8 +63,35 @@ export function VideoStudio() {
     const topRow = document.createElement('div');
     topRow.className = 'flex items-start gap-5 px-2';
 
+    // --- Image Upload Picker (Image-to-Video) ---
+    const picker = createUploadPicker({
+        anchorContainer: container,
+        onSelect: ({ url }) => {
+            uploadedImageUrl = url;
+            if (!imageMode) {
+                imageMode = true;
+                selectedModel = i2vModels[0].id;
+                selectedModelName = i2vModels[0].name;
+                document.getElementById('v-model-btn-label').textContent = selectedModelName;
+                updateControlsForModel(selectedModel);
+            }
+            textarea.placeholder = 'Describe the motion or effect (optional)';
+        },
+        onClear: () => {
+            uploadedImageUrl = null;
+            imageMode = false;
+            selectedModel = t2vModels[0].id;
+            selectedModelName = t2vModels[0].name;
+            document.getElementById('v-model-btn-label').textContent = selectedModelName;
+            updateControlsForModel(selectedModel);
+            textarea.placeholder = 'Describe the video you want to create';
+        }
+    });
+    topRow.appendChild(picker.trigger);
+    container.appendChild(picker.panel);
+
     const textarea = document.createElement('textarea');
-    textarea.placeholder = 'Describe the video you imagine';
+    textarea.placeholder = 'Describe the video you want to create';
     textarea.className = 'flex-1 bg-transparent border-none text-white text-base md:text-xl placeholder:text-muted focus:outline-none resize-none pt-2.5 leading-relaxed min-h-[40px] max-h-[150px] md:max-h-[250px] overflow-y-auto custom-scrollbar';
     textarea.rows = 1;
     textarea.oninput = () => {
@@ -110,7 +145,7 @@ export function VideoStudio() {
     controlsLeft.appendChild(durationBtn);
     controlsLeft.appendChild(resolutionBtn);
 
-    // Initial visibility
+    // Initial visibility (t2v mode)
     const initDurations = getDurationsForModel(defaultModel.id);
     durationBtn.style.display = initDurations.length > 0 ? 'flex' : 'none';
     const initResolutions = getResolutionsForVideoModel(defaultModel.id);
@@ -133,11 +168,11 @@ export function VideoStudio() {
     dropdown.className = 'absolute bottom-[102%] left-2 z-50 transition-all opacity-0 pointer-events-none scale-95 origin-bottom-left glass rounded-3xl p-3 translate-y-2 w-[calc(100vw-3rem)] max-w-xs shadow-4xl border border-white/10 flex flex-col';
 
     const updateControlsForModel = (modelId) => {
-        const availableArs = getAspectRatiosForVideoModel(modelId);
+        const availableArs = getCurrentAspectRatios(modelId);
         selectedAr = availableArs[0];
         document.getElementById('v-ar-btn-label').textContent = selectedAr;
 
-        const durations = getDurationsForModel(modelId);
+        const durations = getCurrentDurations(modelId);
         if (durations.length > 0) {
             selectedDuration = durations[0];
             document.getElementById('v-duration-btn-label').textContent = `${selectedDuration}s`;
@@ -146,7 +181,7 @@ export function VideoStudio() {
             durationBtn.style.display = 'none';
         }
 
-        const resolutions = getResolutionsForVideoModel(modelId);
+        const resolutions = getCurrentResolutions(modelId);
         if (resolutions.length > 0) {
             selectedResolution = resolutions[0];
             document.getElementById('v-resolution-btn-label').textContent = selectedResolution;
@@ -180,7 +215,7 @@ export function VideoStudio() {
 
             const renderModels = (filter = '') => {
                 list.innerHTML = '';
-                const filtered = t2vModels.filter(m => m.name.toLowerCase().includes(filter.toLowerCase()) || m.id.toLowerCase().includes(filter.toLowerCase()));
+                const filtered = getCurrentModels().filter(m => m.name.toLowerCase().includes(filter.toLowerCase()) || m.id.toLowerCase().includes(filter.toLowerCase()));
                 filtered.forEach(m => {
                     const item = document.createElement('div');
                     item.className = `flex items-center justify-between p-3.5 hover:bg-white/5 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-white/5 ${selectedModel === m.id ? 'bg-white/5 border-white/5' : ''}`;
@@ -215,7 +250,7 @@ export function VideoStudio() {
             dropdown.innerHTML = `<div class="text-[10px] font-bold text-muted uppercase tracking-widest px-3 py-2 border-b border-white/5 mb-2">Aspect Ratio</div>`;
             const list = document.createElement('div');
             list.className = 'flex flex-col gap-1';
-            const availableArs = getAspectRatiosForVideoModel(selectedModel);
+            const availableArs = getCurrentAspectRatios(selectedModel);
             availableArs.forEach(r => {
                 const item = document.createElement('div');
                 item.className = 'flex items-center justify-between p-3.5 hover:bg-white/5 rounded-2xl cursor-pointer transition-all group';
@@ -243,7 +278,7 @@ export function VideoStudio() {
             dropdown.innerHTML = `<div class="text-[10px] font-bold text-secondary uppercase tracking-widest px-3 py-2 border-b border-white/5 mb-2">Duration</div>`;
             const list = document.createElement('div');
             list.className = 'flex flex-col gap-1';
-            const durations = getDurationsForModel(selectedModel);
+            const durations = getCurrentDurations(selectedModel);
             durations.forEach(d => {
                 const item = document.createElement('div');
                 item.className = 'flex items-center justify-between p-3.5 hover:bg-white/5 rounded-2xl cursor-pointer transition-all group';
@@ -266,7 +301,7 @@ export function VideoStudio() {
             dropdown.innerHTML = `<div class="text-[10px] font-bold text-secondary uppercase tracking-widest px-3 py-2 border-b border-white/5 mb-2">Resolution</div>`;
             const list = document.createElement('div');
             list.className = 'flex flex-col gap-1';
-            const resolutions = getResolutionsForVideoModel(selectedModel);
+            const resolutions = getCurrentResolutions(selectedModel);
             resolutions.forEach(r => {
                 const item = document.createElement('div');
                 item.className = 'flex items-center justify-between p-3.5 hover:bg-white/5 rounded-2xl cursor-pointer transition-all group';
@@ -481,6 +516,15 @@ export function VideoStudio() {
         hero.classList.remove('hidden', 'opacity-0', 'scale-95', '-translate-y-10', 'pointer-events-none');
         promptWrapper.classList.remove('hidden', 'opacity-40');
         textarea.value = '';
+        picker.reset();
+        uploadedImageUrl = null;
+        // Reset to t2v mode
+        imageMode = false;
+        selectedModel = t2vModels[0].id;
+        selectedModelName = t2vModels[0].name;
+        document.getElementById('v-model-btn-label').textContent = selectedModelName;
+        updateControlsForModel(selectedModel);
+        textarea.placeholder = 'Describe the video you want to create';
         textarea.focus();
     };
 
@@ -489,7 +533,17 @@ export function VideoStudio() {
     // ==========================================
     generateBtn.onclick = async () => {
         const prompt = textarea.value.trim();
-        if (!prompt) return;
+        if (imageMode) {
+            if (!uploadedImageUrl) {
+                alert('Please upload a start frame image first.');
+                return;
+            }
+        } else {
+            if (!prompt) {
+                alert('Please enter a prompt to generate a video.');
+                return;
+            }
+        }
 
         const apiKey = localStorage.getItem('muapi_key');
         if (!apiKey) {
@@ -498,27 +552,28 @@ export function VideoStudio() {
         }
 
         hero.classList.add('opacity-0', 'scale-95', '-translate-y-10', 'pointer-events-none');
-
         generateBtn.disabled = true;
         generateBtn.innerHTML = `<span class="animate-spin inline-block mr-2 text-black">◌</span> Generating...`;
 
         try {
             const params = {
-                prompt,
                 model: selectedModel,
                 aspect_ratio: selectedAr,
             };
 
-            const durations = getDurationsForModel(selectedModel);
+            if (prompt) params.prompt = prompt;
+            if (imageMode && uploadedImageUrl) params.image_url = uploadedImageUrl;
+
+            const durations = getCurrentDurations(selectedModel);
             if (durations.length > 0) params.duration = selectedDuration;
 
-            const resolutions = getResolutionsForVideoModel(selectedModel);
+            const resolutions = getCurrentResolutions(selectedModel);
             if (resolutions.length > 0) params.resolution = selectedResolution;
 
-            const model = t2vModels.find(m => m.id === selectedModel);
+            const model = getCurrentModels().find(m => m.id === selectedModel);
             if (model?.inputs?.quality) params.quality = model.inputs.quality.default;
 
-            const res = await muapi.generateVideo(params);
+            const res = imageMode ? await muapi.generateI2V(params) : await muapi.generateVideo(params);
 
             console.log('[VideoStudio] Full response:', res);
 
