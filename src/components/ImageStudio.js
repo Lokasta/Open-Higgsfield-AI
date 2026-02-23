@@ -1,6 +1,7 @@
 import { muapi } from '../lib/muapi.js';
-import { t2iModels, getAspectRatiosForModel } from '../lib/models.js';
+import { t2iModels, getAspectRatiosForModel, i2iModels, getAspectRatiosForI2IModel, getResolutionsForI2IModel } from '../lib/models.js';
 import { AuthModal } from './AuthModal.js';
+import { createUploadPicker } from './UploadPicker.js';
 
 export function ImageStudio() {
     const container = document.createElement('div');
@@ -10,31 +11,14 @@ export function ImageStudio() {
     const defaultModel = t2iModels[0];
     let selectedModel = defaultModel.id;
     let selectedModelName = defaultModel.name;
-    let selectedAr = '1:1';
+    let selectedAr = defaultModel.inputs?.aspect_ratio?.default || '1:1';
     let dropdownOpen = null;
+    let uploadedImageUrl = null;
+    let imageMode = false; // false = t2i models, true = i2i models
 
-    // Helper: Get valid resolutions/quality options for a model
-    const getResolutionsForModel = (modelId) => {
-        const model = t2iModels.find(m => m.id === modelId);
-        if (!model) return ['1K']; // Default
-
-        // Check for specific resolution enum
-        if (model.inputs?.resolution?.enum) {
-            return model.inputs.resolution.enum.map(r => r.toUpperCase());
-        }
-
-        // Check for megapixels enum
-        if (model.inputs?.megapixels?.enum) {
-            return model.inputs.megapixels.enum;
-        }
-
-        // Fallback logic based on common models
-        if (modelId.includes('flux')) return ['1K']; // Flux usually fixed
-        if (modelId.includes('midjourney')) return ['1K'];
-
-        // Default set for others if not specified
-        return ['1K', '2K', '4K'];
-    };
+    const getCurrentModels = () => imageMode ? i2iModels : t2iModels;
+    const getCurrentAspectRatios = (id) => imageMode ? getAspectRatiosForI2IModel(id) : getAspectRatiosForModel(id);
+    const getCurrentResolutions = (id) => imageMode ? getResolutionsForI2IModel(id) : [];
 
     // ==========================================
     // 1. HERO SECTION
@@ -59,8 +43,8 @@ export function ImageStudio() {
                 <div class="absolute top-4 right-4 text-primary animate-pulse">✨</div>
              </div>
         </div>
-        <h1 class="text-2xl sm:text-4xl md:text-7xl font-black text-white tracking-widest uppercase mb-4 selection:bg-primary selection:text-black text-center px-4">Nano Banana Pro</h1>
-        <p class="text-secondary text-sm font-medium tracking-wide opacity-60">Create stunning, high-aesthetic images in seconds</p>
+        <h1 class="text-2xl sm:text-4xl md:text-7xl font-black text-white tracking-widest uppercase mb-4 selection:bg-primary selection:text-black text-center px-4">Image Studio</h1>
+        <p class="text-secondary text-sm font-medium tracking-wide opacity-60">Transform images with AI — upscale, stylize, animate and more</p>
     `;
     container.appendChild(hero);
 
@@ -78,10 +62,41 @@ export function ImageStudio() {
     const topRow = document.createElement('div');
     topRow.className = 'flex items-start gap-5 px-2';
 
-    topRow.innerHTML = ``;
+    // --- Image Upload Picker (Image-to-Image) ---
+    const picker = createUploadPicker({
+        anchorContainer: container,
+        onSelect: ({ url }) => {
+            uploadedImageUrl = url;
+            if (!imageMode) {
+                imageMode = true;
+                selectedModel = i2iModels[0].id;
+                selectedModelName = i2iModels[0].name;
+                selectedAr = getAspectRatiosForI2IModel(selectedModel)[0];
+                document.getElementById('model-btn-label').textContent = selectedModelName;
+                document.getElementById('ar-btn-label').textContent = selectedAr;
+                const validResolutions = getResolutionsForI2IModel(selectedModel);
+                qualityBtn.style.display = validResolutions.length > 0 ? 'flex' : 'none';
+                if (validResolutions.length > 0) document.getElementById('quality-btn-label').textContent = validResolutions[0];
+            }
+            textarea.placeholder = 'Describe how to transform this image (optional)';
+        },
+        onClear: () => {
+            uploadedImageUrl = null;
+            imageMode = false;
+            selectedModel = t2iModels[0].id;
+            selectedModelName = t2iModels[0].name;
+            selectedAr = getAspectRatiosForModel(selectedModel)[0];
+            document.getElementById('model-btn-label').textContent = selectedModelName;
+            document.getElementById('ar-btn-label').textContent = selectedAr;
+            qualityBtn.style.display = 'none';
+            textarea.placeholder = 'Describe the image you want to create';
+        }
+    });
+    topRow.appendChild(picker.trigger);
+    container.appendChild(picker.panel);
 
     const textarea = document.createElement('textarea');
-    textarea.placeholder = 'Describe the scene you imagine';
+    textarea.placeholder = 'Describe the image you want to create';
     textarea.className = 'flex-1 bg-transparent border-none text-white text-base md:text-xl placeholder:text-muted focus:outline-none resize-none pt-2.5 leading-relaxed min-h-[40px] max-h-[150px] md:max-h-[250px] overflow-y-auto custom-scrollbar';
     textarea.rows = 1;
     textarea.oninput = () => {
@@ -124,16 +139,12 @@ export function ImageStudio() {
 
     const qualityBtn = createControlBtn(`
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="opacity-60 text-secondary"><path d="M6 2L3 6v15a2 2 0 002 2h14a2 2 0 002-2V6l-3-4H6z"/></svg>
-    `, '1K', 'quality-btn');
+    `, '720p', 'quality-btn');
 
     controlsLeft.appendChild(modelBtn);
     controlsLeft.appendChild(arBtn);
     controlsLeft.appendChild(qualityBtn);
-
-    // Initial Resolution Visibility (only show for models with explicit resolution/megapixels enums)
-    const initialModel = t2iModels[0];
-    const hasInitialRes = initialModel?.inputs?.resolution?.enum || initialModel?.inputs?.megapixels?.enum;
-    qualityBtn.style.display = hasInitialRes ? 'flex' : 'none';
+    qualityBtn.style.display = 'none'; // hidden in t2i mode, shown when i2i model has resolutions
 
     const generateBtn = document.createElement('button');
     generateBtn.className = 'bg-primary text-black px-6 md:px-8 py-3 md:py-3.5 rounded-xl md:rounded-[1.5rem] font-black text-sm md:text-base hover:shadow-glow hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2.5 w-full sm:w-auto shadow-lg';
@@ -175,14 +186,14 @@ export function ImageStudio() {
 
             const renderModels = (filter = '') => {
                 list.innerHTML = '';
-                const filtered = t2iModels.filter(m => m.name.toLowerCase().includes(filter.toLowerCase()) || m.id.toLowerCase().includes(filter.toLowerCase()));
+                const filtered = getCurrentModels().filter(m => m.name.toLowerCase().includes(filter.toLowerCase()) || m.id.toLowerCase().includes(filter.toLowerCase()));
 
                 filtered.forEach(m => {
                     const item = document.createElement('div');
                     item.className = `flex items-center justify-between p-3.5 hover:bg-white/5 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-white/5 ${selectedModel === m.id ? 'bg-white/5 border-white/5' : ''}`;
                     item.innerHTML = `
                         <div class="flex items-center gap-3.5">
-                             <div class="w-10 h-10 ${m.id.includes('flux') ? 'bg-blue-500/10 text-blue-400' : 'bg-primary/10 text-primary'} border border-white/5 rounded-xl flex items-center justify-center font-black text-sm shadow-inner uppercase">${m.name.charAt(0)}</div>
+                             <div class="w-10 h-10 ${m.family === 'kontext' ? 'bg-blue-500/10 text-blue-400' : m.family === 'effects' ? 'bg-purple-500/10 text-purple-400' : 'bg-primary/10 text-primary'} border border-white/5 rounded-xl flex items-center justify-center font-black text-sm shadow-inner uppercase">${m.name.charAt(0)}</div>
                              <div class="flex flex-col gap-0.5">
                                 <span class="text-xs font-bold text-white tracking-tight">${m.name}</span>
                              </div>
@@ -193,24 +204,15 @@ export function ImageStudio() {
                         e.stopPropagation();
                         selectedModel = m.id;
                         selectedModelName = m.name;
-                        // Reset AR to first valid for model
-                        const availableArs = getAspectRatiosForModel(selectedModel);
+                        const availableArs = getCurrentAspectRatios(selectedModel);
                         selectedAr = availableArs[0];
                         document.getElementById('model-btn-label').textContent = selectedModelName;
                         document.getElementById('ar-btn-label').textContent = selectedAr;
 
-                        // Show/Hide quality button based on model support (only resolution/megapixels enums)
-                        const model = t2iModels.find(mod => mod.id === selectedModel);
-                        const hasQuality = model?.inputs?.resolution?.enum || model?.inputs?.megapixels?.enum;
-                        qualityBtn.style.display = hasQuality ? 'flex' : 'none';
-
-                        // Reset resolution label if current is not valid for new model
-                        if (hasQuality) {
-                            const validResolutions = getResolutionsForModel(selectedModel);
-                            const currentRes = document.getElementById('quality-btn-label').textContent;
-                            if (!validResolutions.includes(currentRes)) {
-                                document.getElementById('quality-btn-label').textContent = validResolutions[0];
-                            }
+                        const validResolutions = getCurrentResolutions(selectedModel);
+                        qualityBtn.style.display = validResolutions.length > 0 ? 'flex' : 'none';
+                        if (validResolutions.length > 0) {
+                            document.getElementById('quality-btn-label').textContent = validResolutions[0];
                         }
 
                         closeDropdown();
@@ -231,7 +233,7 @@ export function ImageStudio() {
             const list = document.createElement('div');
             list.className = 'flex flex-col gap-1';
 
-            const availableArs = getAspectRatiosForModel(selectedModel);
+            const availableArs = getCurrentAspectRatios(selectedModel);
             availableArs.forEach(r => {
                 const item = document.createElement('div');
                 item.className = 'flex items-center justify-between p-3.5 hover:bg-white/5 rounded-2xl cursor-pointer transition-all group';
@@ -259,8 +261,7 @@ export function ImageStudio() {
             const list = document.createElement('div');
             list.className = 'flex flex-col gap-1';
 
-            // Dynamic resolution options
-            const options = getResolutionsForModel(selectedModel);
+            const options = getCurrentResolutions(selectedModel);
 
             options.forEach(opt => {
                 const item = document.createElement('div');
@@ -506,6 +507,17 @@ export function ImageStudio() {
         hero.classList.remove('hidden', 'opacity-0', 'scale-95', '-translate-y-10', 'pointer-events-none');
         promptWrapper.classList.remove('hidden', 'opacity-40');
         textarea.value = '';
+        picker.reset();
+        uploadedImageUrl = null;
+        // Reset to t2i mode
+        imageMode = false;
+        selectedModel = t2iModels[0].id;
+        selectedModelName = t2iModels[0].name;
+        selectedAr = getAspectRatiosForModel(selectedModel)[0];
+        document.getElementById('model-btn-label').textContent = selectedModelName;
+        document.getElementById('ar-btn-label').textContent = selectedAr;
+        qualityBtn.style.display = 'none';
+        textarea.placeholder = 'Describe the image you want to create';
         textarea.focus();
     };
 
@@ -514,30 +526,46 @@ export function ImageStudio() {
     // ==========================================
     generateBtn.onclick = async () => {
         const prompt = textarea.value.trim();
-        if (!prompt) return;
+        if (imageMode) {
+            if (!uploadedImageUrl) {
+                alert('Please upload a reference image first.');
+                return;
+            }
+        } else {
+            if (!prompt) {
+                alert('Please enter a prompt to generate an image.');
+                return;
+            }
+        }
 
-        // Lazy API Key Check
         const apiKey = localStorage.getItem('muapi_key');
         if (!apiKey) {
-            AuthModal(() => {
-                // Key saved, now trigger generation
-                generateBtn.click();
-            });
+            AuthModal(() => generateBtn.click());
             return;
         }
 
-        // Animate Out Hero
         hero.classList.add('opacity-0', 'scale-95', '-translate-y-10', 'pointer-events-none');
-
         generateBtn.disabled = true;
         generateBtn.innerHTML = `<span class="animate-spin inline-block mr-2 text-black">◌</span> Generating...`;
 
         try {
-            const res = await muapi.generateImage({
-                prompt,
-                model: selectedModel,
-                aspect_ratio: selectedAr
-            });
+            let res;
+            if (imageMode) {
+                const genParams = {
+                    model: selectedModel,
+                    image_url: uploadedImageUrl,
+                    aspect_ratio: selectedAr
+                };
+                if (prompt) genParams.prompt = prompt;
+                res = await muapi.generateI2I(genParams);
+            } else {
+                const genParams = {
+                    model: selectedModel,
+                    prompt,
+                    aspect_ratio: selectedAr
+                };
+                res = await muapi.generateImage(genParams);
+            }
 
             console.log('[ImageStudio] Full response:', res);
 

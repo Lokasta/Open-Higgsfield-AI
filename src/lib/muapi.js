@@ -1,4 +1,4 @@
-import { getModelById, getVideoModelById } from './models.js';
+import { getModelById, getVideoModelById, getI2IModelById, getI2VModelById } from './models.js';
 
 export class MuapiClient {
     constructor() {
@@ -173,6 +173,7 @@ export class MuapiClient {
         if (params.duration) finalPayload.duration = params.duration;
         if (params.resolution) finalPayload.resolution = params.resolution;
         if (params.quality) finalPayload.quality = params.quality;
+        if (params.image_url) finalPayload.image_url = params.image_url;
 
         console.log('[Muapi] Video Request:', url);
         console.log('[Muapi] Video Payload:', finalPayload);
@@ -210,6 +211,171 @@ export class MuapiClient {
             console.error("Muapi Video Client Error:", error);
             throw error;
         }
+    }
+
+    /**
+     * Generates an image using an Image-to-Image model.
+     * The model's imageField determines which payload key receives the uploaded image URL.
+     * @param {Object} params
+     * @param {string} params.model - i2iModel id
+     * @param {string} params.image_url - The uploaded reference image URL
+     * @param {string} [params.prompt] - Optional text prompt
+     * @param {string} [params.aspect_ratio]
+     * @param {string} [params.resolution]
+     */
+    async generateI2I(params) {
+        const key = this.getKey();
+        const modelInfo = getI2IModelById(params.model);
+        const endpoint = modelInfo?.endpoint || params.model;
+        const url = `${this.baseUrl}/api/v1/${endpoint}`;
+
+        const finalPayload = {};
+
+        // Only include prompt if the model supports it and one was provided
+        if (params.prompt) finalPayload.prompt = params.prompt;
+
+        // Place the uploaded image in the correct field for this model
+        const imageField = modelInfo?.imageField || 'image_url';
+        if (params.image_url) {
+            if (imageField === 'images_list') {
+                finalPayload.images_list = [params.image_url];
+            } else {
+                finalPayload[imageField] = params.image_url;
+            }
+        }
+
+        if (params.aspect_ratio) finalPayload.aspect_ratio = params.aspect_ratio;
+        if (params.resolution) finalPayload.resolution = params.resolution;
+
+        console.log('[Muapi] I2I Request:', url);
+        console.log('[Muapi] I2I Payload:', finalPayload);
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-key': key },
+                body: JSON.stringify(finalPayload)
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`API Request Failed: ${response.status} ${response.statusText} - ${errText.slice(0, 100)}`);
+            }
+
+            const submitData = await response.json();
+            console.log('[Muapi] I2I Submit Response:', submitData);
+
+            const requestId = submitData.request_id || submitData.id;
+            if (!requestId) return submitData;
+
+            const result = await this.pollForResult(requestId, key);
+            const imageUrl = result.outputs?.[0] || result.url || result.output?.url;
+            console.log('[Muapi] I2I Result URL:', imageUrl);
+            return { ...result, url: imageUrl };
+        } catch (error) {
+            console.error('Muapi I2I Error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Generates a video using an Image-to-Video model.
+     * @param {Object} params
+     * @param {string} params.model - i2vModel id
+     * @param {string} params.image_url - The uploaded start frame image URL
+     * @param {string} [params.prompt]
+     * @param {string} [params.aspect_ratio]
+     * @param {string} [params.resolution]
+     * @param {number} [params.duration]
+     * @param {string} [params.quality]
+     */
+    async generateI2V(params) {
+        const key = this.getKey();
+        const modelInfo = getI2VModelById(params.model);
+        const endpoint = modelInfo?.endpoint || params.model;
+        const url = `${this.baseUrl}/api/v1/${endpoint}`;
+
+        const finalPayload = {};
+
+        if (params.prompt) finalPayload.prompt = params.prompt;
+
+        // Place image in the correct field for this model
+        const imageField = modelInfo?.imageField || 'image_url';
+        if (params.image_url) {
+            if (imageField === 'images_list') {
+                finalPayload.images_list = [params.image_url];
+            } else {
+                finalPayload[imageField] = params.image_url;
+            }
+        }
+
+        if (params.aspect_ratio) finalPayload.aspect_ratio = params.aspect_ratio;
+        if (params.duration) finalPayload.duration = params.duration;
+        if (params.resolution) finalPayload.resolution = params.resolution;
+        if (params.quality) finalPayload.quality = params.quality;
+
+        console.log('[Muapi] I2V Request:', url);
+        console.log('[Muapi] I2V Payload:', finalPayload);
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-key': key },
+                body: JSON.stringify(finalPayload)
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`API Request Failed: ${response.status} ${response.statusText} - ${errText.slice(0, 100)}`);
+            }
+
+            const submitData = await response.json();
+            console.log('[Muapi] I2V Submit Response:', submitData);
+
+            const requestId = submitData.request_id || submitData.id;
+            if (!requestId) return submitData;
+
+            const result = await this.pollForResult(requestId, key, 120, 2000);
+            const videoUrl = result.outputs?.[0] || result.url || result.output?.url;
+            console.log('[Muapi] I2V Result URL:', videoUrl);
+            return { ...result, url: videoUrl };
+        } catch (error) {
+            console.error('Muapi I2V Error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Uploads a file to muapi and returns the hosted URL.
+     * @param {File} file - The image file to upload
+     * @returns {Promise<string>} The hosted URL of the uploaded file
+     */
+    async uploadFile(file) {
+        const key = this.getKey();
+        const url = `${this.baseUrl}/api/v1/upload_file`;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        console.log('[Muapi] Uploading file:', file.name);
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'x-api-key': key },
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`File upload failed: ${response.status} - ${errText.slice(0, 100)}`);
+        }
+
+        const data = await response.json();
+        console.log('[Muapi] Upload response:', data);
+
+        const fileUrl = data.url || data.file_url || data.data?.url;
+        if (!fileUrl) throw new Error('No URL returned from file upload');
+        return fileUrl;
     }
 
     getDimensionsFromAR(ar) {
