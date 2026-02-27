@@ -1,5 +1,9 @@
 import { muapi } from '../lib/muapi.js';
-import { t2iModels, getAspectRatiosForModel, i2iModels, getAspectRatiosForI2IModel, getResolutionsForI2IModel } from '../lib/models.js';
+import {
+    t2iModels, getAspectRatiosForModel, getResolutionsForModel, getQualityFieldForModel,
+    i2iModels, getAspectRatiosForI2IModel, getResolutionsForI2IModel, getQualityFieldForI2IModel,
+    getMaxImagesForI2IModel
+} from '../lib/models.js';
 import { AuthModal } from './AuthModal.js';
 import { createUploadPicker } from './UploadPicker.js';
 
@@ -13,12 +17,13 @@ export function ImageStudio() {
     let selectedModelName = defaultModel.name;
     let selectedAr = defaultModel.inputs?.aspect_ratio?.default || '1:1';
     let dropdownOpen = null;
-    let uploadedImageUrl = null;
+    let uploadedImageUrls = []; // array of uploaded image URLs (multi-image support)
     let imageMode = false; // false = t2i models, true = i2i models
 
     const getCurrentModels = () => imageMode ? i2iModels : t2iModels;
     const getCurrentAspectRatios = (id) => imageMode ? getAspectRatiosForI2IModel(id) : getAspectRatiosForModel(id);
-    const getCurrentResolutions = (id) => imageMode ? getResolutionsForI2IModel(id) : [];
+    const getCurrentResolutions = (id) => imageMode ? getResolutionsForI2IModel(id) : getResolutionsForModel(id);
+    const getCurrentQualityField = (id) => imageMode ? getQualityFieldForI2IModel(id) : getQualityFieldForModel(id);
 
     // ==========================================
     // 1. HERO SECTION
@@ -65,8 +70,8 @@ export function ImageStudio() {
     // --- Image Upload Picker (Image-to-Image) ---
     const picker = createUploadPicker({
         anchorContainer: container,
-        onSelect: ({ url }) => {
-            uploadedImageUrl = url;
+        onSelect: ({ url, urls }) => {
+            uploadedImageUrls = urls || [url];
             if (!imageMode) {
                 imageMode = true;
                 selectedModel = i2iModels[0].id;
@@ -77,18 +82,24 @@ export function ImageStudio() {
                 const validResolutions = getResolutionsForI2IModel(selectedModel);
                 qualityBtn.style.display = validResolutions.length > 0 ? 'flex' : 'none';
                 if (validResolutions.length > 0) document.getElementById('quality-btn-label').textContent = validResolutions[0];
+                picker.setMaxImages(getMaxImagesForI2IModel(selectedModel));
             }
-            textarea.placeholder = 'Describe how to transform this image (optional)';
+            textarea.placeholder = uploadedImageUrls.length > 1
+                ? `${uploadedImageUrls.length} images selected — describe the transformation (optional)`
+                : 'Describe how to transform this image (optional)';
         },
         onClear: () => {
-            uploadedImageUrl = null;
+            uploadedImageUrls = [];
             imageMode = false;
             selectedModel = t2iModels[0].id;
             selectedModelName = t2iModels[0].name;
             selectedAr = getAspectRatiosForModel(selectedModel)[0];
             document.getElementById('model-btn-label').textContent = selectedModelName;
             document.getElementById('ar-btn-label').textContent = selectedAr;
-            qualityBtn.style.display = 'none';
+            const t2iResolutions = getResolutionsForModel(selectedModel);
+            qualityBtn.style.display = t2iResolutions.length > 0 ? 'flex' : 'none';
+            if (t2iResolutions.length > 0) document.getElementById('quality-btn-label').textContent = t2iResolutions[0];
+            picker.setMaxImages(1);
             textarea.placeholder = 'Describe the image you want to create';
         }
     });
@@ -144,7 +155,10 @@ export function ImageStudio() {
     controlsLeft.appendChild(modelBtn);
     controlsLeft.appendChild(arBtn);
     controlsLeft.appendChild(qualityBtn);
-    qualityBtn.style.display = 'none'; // hidden in t2i mode, shown when i2i model has resolutions
+    // Show quality button if the default model has quality/resolution options
+    const _initResolutions = getResolutionsForModel(defaultModel.id);
+    qualityBtn.style.display = _initResolutions.length > 0 ? 'flex' : 'none';
+    if (_initResolutions.length > 0) document.getElementById('quality-btn-label').textContent = _initResolutions[0];
 
     const generateBtn = document.createElement('button');
     generateBtn.className = 'bg-primary text-black px-6 md:px-8 py-3 md:py-3.5 rounded-xl md:rounded-[1.5rem] font-black text-sm md:text-base hover:shadow-glow hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2.5 w-full sm:w-auto shadow-lg';
@@ -213,6 +227,11 @@ export function ImageStudio() {
                         qualityBtn.style.display = validResolutions.length > 0 ? 'flex' : 'none';
                         if (validResolutions.length > 0) {
                             document.getElementById('quality-btn-label').textContent = validResolutions[0];
+                        }
+
+                        // Update picker's max images when switching i2i models
+                        if (imageMode) {
+                            picker.setMaxImages(getMaxImagesForI2IModel(selectedModel));
                         }
 
                         closeDropdown();
@@ -508,7 +527,8 @@ export function ImageStudio() {
         promptWrapper.classList.remove('hidden', 'opacity-40');
         textarea.value = '';
         picker.reset();
-        uploadedImageUrl = null;
+        uploadedImageUrls = [];
+        picker.setMaxImages(1);
         // Reset to t2i mode
         imageMode = false;
         selectedModel = t2iModels[0].id;
@@ -516,7 +536,9 @@ export function ImageStudio() {
         selectedAr = getAspectRatiosForModel(selectedModel)[0];
         document.getElementById('model-btn-label').textContent = selectedModelName;
         document.getElementById('ar-btn-label').textContent = selectedAr;
-        qualityBtn.style.display = 'none';
+        const resetResolutions = getResolutionsForModel(selectedModel);
+        qualityBtn.style.display = resetResolutions.length > 0 ? 'flex' : 'none';
+        if (resetResolutions.length > 0) document.getElementById('quality-btn-label').textContent = resetResolutions[0];
         textarea.placeholder = 'Describe the image you want to create';
         textarea.focus();
     };
@@ -527,7 +549,7 @@ export function ImageStudio() {
     generateBtn.onclick = async () => {
         const prompt = textarea.value.trim();
         if (imageMode) {
-            if (!uploadedImageUrl) {
+            if (uploadedImageUrls.length === 0) {
                 alert('Please upload a reference image first.');
                 return;
             }
@@ -550,13 +572,17 @@ export function ImageStudio() {
 
         try {
             let res;
+            const qualityLabel = document.getElementById('quality-btn-label')?.textContent;
             if (imageMode) {
                 const genParams = {
                     model: selectedModel,
-                    image_url: uploadedImageUrl,
+                    images_list: uploadedImageUrls,
+                    image_url: uploadedImageUrls[0], // backward compat for single-image models
                     aspect_ratio: selectedAr
                 };
                 if (prompt) genParams.prompt = prompt;
+                const qualityField = getCurrentQualityField(selectedModel);
+                if (qualityField && qualityLabel) genParams[qualityField] = qualityLabel;
                 res = await muapi.generateI2I(genParams);
             } else {
                 const genParams = {
@@ -564,6 +590,8 @@ export function ImageStudio() {
                     prompt,
                     aspect_ratio: selectedAr
                 };
+                const qualityField = getCurrentQualityField(selectedModel);
+                if (qualityField && qualityLabel) genParams[qualityField] = qualityLabel;
                 res = await muapi.generateImage(genParams);
             }
 
