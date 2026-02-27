@@ -2,12 +2,13 @@
 
 > **The free, open-source alternative to Higgsfield AI.** Generate AI images and videos using 200+ state-of-the-art models — without the closed ecosystem or subscription fees.
 
-Open Higgsfield AI is an open-source AI image, video, and cinema studio that brings Higgsfield-style creative workflows to everyone. Powered by [Muapi.ai](https://muapi.ai), it supports text-to-image, image-to-image, text-to-video, and image-to-video generation across models like Flux, Nano Banana, Midjourney, Kling, Sora, Veo, and more — all from a sleek, modern interface you can self-host and customize.
+Open Higgsfield AI is an open-source AI image, video, and cinema studio that brings Higgsfield-style creative workflows to everyone. Powered by [Muapi.ai](https://muapi.ai), it supports text-to-image, image-to-image, text-to-video, and image-to-video generation across models like Flux, Nano Banana, Midjourney, Kling, Sora, Veo, Seedream, and more — all from a sleek, modern interface you can self-host and customize.
 
 **Why Open Higgsfield AI instead of Higgsfield AI?**
 - **Free & open-source** — no subscription, no vendor lock-in
 - **Self-hosted** — your data stays on your machine
 - **200+ models** — text-to-image, image-to-image, text-to-video, image-to-video
+- **Multi-image input** — feed up to 14 reference images into compatible models
 - **Extensible** — add your own models, modify the UI, build on top of it
 
 For a deep dive into the technical architecture and the philosophy behind the "Infinite Budget" cinema workflow, see our [comprehensive guide and roadmap](https://medium.com/@anilmatcha/building-open-higgsfield-ai-an-open-source-ai-cinema-studio-83c1e0a2a5f1).
@@ -16,11 +17,12 @@ For a deep dive into the technical architecture and the philosophy behind the "I
 
 ## ✨ Features
 
-- **Image Studio** — Generate images from text prompts (50+ text-to-image models) or transform existing images (55+ image-to-image models). Switches model set automatically based on whether a reference image is provided.
+- **Image Studio** — Generate images from text prompts (50+ text-to-image models) or transform existing images (55+ image-to-image models). Switches model set automatically based on whether a reference image is provided. Quality and resolution controls visible for models that support them.
+- **Multi-Image Input** — Upload up to 14 reference images for compatible edit models (Nano Banana 2 Edit, Flux Kontext Dev, GPT-4o Edit, and more). Multi-select picker with order badges, batch upload, and a "Use Selected" confirmation flow.
 - **Video Studio** — Generate videos from text prompts (40+ text-to-video models) or animate a start-frame image (60+ image-to-video models). Same intelligent mode switching as Image Studio.
 - **Cinema Studio** — Higgsfield AI-style interface for photorealistic cinematic shots with pro camera controls (Lens, Focal Length, Aperture)
 - **Upload History** — Reference images are uploaded once and stored locally. A picker panel lets you reuse any previously uploaded image across sessions — no re-uploading.
-- **Smart Controls** — Dynamic aspect ratio, resolution, and duration pickers that adapt to each model's capabilities
+- **Smart Controls** — Dynamic aspect ratio, resolution/quality, and duration pickers that adapt to each model's capabilities (including t2i models with resolution or quality options)
 - **Generation History** — Browse, revisit, and download all past generations (persisted in browser storage)
 - **Image & Video Download** — One-click download of generated outputs in full resolution
 - **API Key Management** — Secure API key storage in browser localStorage (never sent to any server except Muapi)
@@ -32,8 +34,44 @@ The Image Studio automatically switches between two model sets:
 
 | Mode | Trigger | Models | Prompt |
 | :--- | :--- | :--- | :--- |
-| **Text-to-Image** | Default (no image) | 50+ t2i models (Flux, Nano Banana, Ideogram, GPT-4o, Midjourney…) | Required |
-| **Image-to-Image** | Reference image uploaded | 55+ i2i models (Kontext, Seededit, Nano Banana Edit, Upscaler, Background Remover…) | Optional |
+| **Text-to-Image** | Default (no image) | 50+ t2i models (Flux, Nano Banana 2, Seedream 5.0, Ideogram, GPT-4o, Midjourney…) | Required |
+| **Image-to-Image** | Reference image uploaded | 55+ i2i models (Kontext, Nano Banana 2 Edit, Seedream 5.0 Edit, Seededit, Upscaler…) | Optional |
+
+#### Newly Added Models
+
+| Model | Type | Key Features |
+| :--- | :--- | :--- |
+| **Nano Banana 2** | Text-to-Image | Google Gemini 3.1 Flash Image · Resolution 1K/2K/4K · Google Search enhancement · aspect ratio `auto` |
+| **Nano Banana 2 Edit** | Image-to-Image | Up to **14 reference images** · Resolution 1K/2K/4K · Google Search enhancement |
+| **Seedream 5.0** | Text-to-Image | ByteDance · Quality basic/high · 8 aspect ratios · up to 4K |
+| **Seedream 5.0 Edit** | Image-to-Image | ByteDance · Natural language style transfer · Quality basic/high |
+
+#### Multi-Image Input
+
+Models that accept multiple reference images expose a multi-select picker when active:
+
+| Model | Max Images |
+| :--- | :--- |
+| Nano Banana 2 Edit | 14 |
+| Nano Banana Edit | 10 |
+| Flux Kontext Dev I2I | 10 |
+| Kling O1 Edit Image | 10 |
+| GPT-4o Edit / GPT Image 1.5 Edit | 10 |
+| Bytedance Seedream Edit v4 / v4.5 | 10 |
+| Vidu Q2 Reference to Image | 7 |
+| Flux 2 Flex/Pro Edit | 8 |
+| Nano Banana Pro Edit | 8 |
+| Flux Kontext Pro/Max I2I | 2 |
+| Wan 2.5/2.6 Image Edit | 2–3 |
+| Qwen Image Edit Plus / 2511 | 3 |
+| GPT-4o Image to Image | 5 |
+| Flux 2 Klein 4b/9b Edit | 4 |
+
+When a multi-image model is selected the upload trigger switches to multi-select mode:
+- **Checkboxes with order numbers** — images are sent to the model in the order you select them
+- **Batch upload** — pick multiple files at once from your file dialog
+- **Count badge** on the trigger shows how many images are active; a `+` badge appears when more slots are available
+- **"Use Selected" button** confirms and closes the picker
 
 ### 🎬 Video Studio — Dual Mode
 
@@ -61,8 +99,9 @@ Every image you upload is saved locally (URL + thumbnail) so you never upload th
 
 - Click the upload button to open the **reference image picker**
 - Previously uploaded images appear in a 3-column grid with thumbnails
-- Click any thumbnail to instantly reuse it — no API call needed
-- Upload a new image with the "Upload new" button in the panel
+- **Single-image models** — click a thumbnail to instantly select and close
+- **Multi-image models** — toggle multiple thumbnails (shown with order numbers), then click **Use Selected**
+- Upload new images with the **Upload files** button (supports multi-file selection in multi-image mode)
 - Remove individual images from history with the ✕ button
 - History persists across browser sessions (stored in `localStorage`)
 
@@ -101,10 +140,10 @@ npm run preview
 ```
 src/
 ├── components/
-│   ├── ImageStudio.js    # Dual-mode t2i/i2i studio with dynamic model switching
+│   ├── ImageStudio.js    # Dual-mode t2i/i2i studio with dynamic model switching & multi-image support
 │   ├── VideoStudio.js    # Dual-mode t2v/i2v studio with dynamic model switching
 │   ├── CinemaStudio.js   # Pro studio with camera controls & infinite canvas flow
-│   ├── UploadPicker.js   # Reusable upload button + history panel component
+│   ├── UploadPicker.js   # Upload button + history panel; single & multi-image select modes
 │   ├── CameraControls.js # Scrollable picker for camera/lens/focal/aperture
 │   ├── Header.js         # App header with settings and controls
 │   ├── AuthModal.js      # API key input modal
@@ -112,7 +151,7 @@ src/
 │   └── Sidebar.js        # Navigation sidebar
 ├── lib/
 │   ├── muapi.js          # API client: generateImage, generateVideo, generateI2I, generateI2V, uploadFile
-│   ├── models.js         # 200+ model definitions (t2i, t2v, i2i, i2v) with endpoint & input mappings
+│   ├── models.js         # 200+ model definitions with endpoints, inputs, maxImages, quality/resolution mappings
 │   └── uploadHistory.js  # localStorage CRUD + canvas thumbnail generation for upload history
 ├── styles/
 │   ├── global.css        # Global styles and animations
@@ -131,14 +170,14 @@ The app communicates with [Muapi.ai](https://muapi.ai) using a two-step pattern:
 
 Authentication uses the `x-api-key` header. During development, a Vite proxy handles CORS by routing `/api` requests to `https://api.muapi.ai`.
 
-File uploads use `POST /api/v1/upload_file` (multipart/form-data) and return a hosted URL that is passed to image-conditioned models.
+File uploads use `POST /api/v1/upload_file` (multipart/form-data) and return a hosted URL that is passed to image-conditioned models. For multi-image models the full `images_list` array is forwarded to the API in one request.
 
 ## 🎨 Supported Model Categories
 
 | Category | Count | Examples |
 |---|---|---|
-| **Text-to-Image** | 50+ | Flux Dev, Nano Banana Pro, Ideogram v3, Midjourney v7, GPT-4o, SDXL |
-| **Image-to-Image** | 55+ | Nano Banana Edit, Flux Kontext Pro, GPT-4o Edit, Seededit v3, Upscaler, Background Remover |
+| **Text-to-Image** | 50+ | Flux Dev, Nano Banana 2, Seedream 5.0, Ideogram v3, Midjourney v7, GPT-4o, SDXL |
+| **Image-to-Image** | 55+ | Nano Banana 2 Edit (×14), Flux Kontext Pro, GPT-4o Edit, Seededit v3, Upscaler, Background Remover |
 | **Text-to-Video** | 40+ | Kling v3, Sora 2, Veo 3, Wan 2.6, Seedance Pro, Hailuo 2.3, Runway Gen-3 |
 | **Image-to-Video** | 60+ | Kling v2.1 I2V, Veo3 I2V, Runway I2V, Midjourney v7 I2V, Hunyuan I2V, Wan2.2 I2V |
 
@@ -157,6 +196,7 @@ Higgsfield AI is a proprietary AI video and image generation platform. **Open Hi
 | :--- | :--- | :--- |
 | **Cost** | Subscription-based | Free (open-source) |
 | **Models** | Proprietary | 200+ open & commercial models |
+| **Multi-image input** | Limited | Up to 14 images per request |
 | **Self-hosting** | No | Yes |
 | **Customizable** | No | Fully hackable |
 | **Data privacy** | Cloud-based | Your data stays local |

@@ -4,24 +4,27 @@ import { getUploadHistory, saveUpload, removeUpload, generateThumbnail } from '.
 
 /**
  * Creates a self-contained upload picker: a trigger button + history panel.
+ * Supports single-image (maxImages=1) and multi-image (maxImages>1) modes.
  *
  * @param {object} options
  * @param {HTMLElement} options.anchorContainer - The container element the panel is positioned relative to
- * @param {function({ url: string, thumbnail: string }): void} options.onSelect - Called when an image is selected
- * @param {function(): void} [options.onClear] - Called when the active selection is removed from history
- * @returns {{ trigger: HTMLElement, panel: HTMLElement, reset: function }}
+ * @param {function({ url: string, urls: string[], thumbnail: string }): void} options.onSelect
+ * @param {function(): void} [options.onClear]
+ * @param {number} [options.maxImages=1] - Maximum number of images selectable
+ * @returns {{ trigger: HTMLElement, panel: HTMLElement, reset: function, setMaxImages: function }}
  */
-export function createUploadPicker({ anchorContainer, onSelect, onClear }) {
+export function createUploadPicker({ anchorContainer, onSelect, onClear, maxImages: initialMaxImages = 1 }) {
     let panelOpen = false;
-    let selectedEntry = null; // { url, thumbnail }
+    let maxImages = initialMaxImages;
+    let selectedEntries = []; // [{ url, thumbnail }, ...]
 
-    // ── Hidden file input ────────────────────────────────────────────────────
+    // ── Hidden file input ─────────────────────────────────────────────────────
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/*';
     fileInput.className = 'hidden';
 
-    // ── Trigger button ───────────────────────────────────────────────────────
+    // ── Trigger button ────────────────────────────────────────────────────────
     const trigger = document.createElement('button');
     trigger.type = 'button';
     trigger.title = 'Reference image';
@@ -37,23 +40,23 @@ export function createUploadPicker({ anchorContainer, onSelect, onClear }) {
     spinnerState.className = 'hidden items-center justify-center w-full h-full';
     spinnerState.innerHTML = `<span class="animate-spin text-primary text-sm">◌</span>`;
 
-    // State: thumbnail with checkmark badge
+    // State: thumbnail (first selected image + optional count badge)
     const thumbnailState = document.createElement('div');
     thumbnailState.className = 'hidden w-full h-full';
     const thumbImg = document.createElement('img');
     thumbImg.className = 'w-full h-full object-cover';
-    const badge = document.createElement('div');
-    badge.className = 'absolute bottom-0.5 right-0.5 w-4 h-4 bg-primary rounded-full flex items-center justify-center';
-    badge.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>`;
+    const countBadge = document.createElement('div');
+    countBadge.className = 'absolute bottom-0.5 right-0.5 min-w-[16px] h-4 bg-primary rounded-full flex items-center justify-center px-0.5';
+    countBadge.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>`;
     thumbnailState.appendChild(thumbImg);
-    thumbnailState.appendChild(badge);
+    thumbnailState.appendChild(countBadge);
 
     trigger.appendChild(fileInput);
     trigger.appendChild(iconState);
     trigger.appendChild(spinnerState);
     trigger.appendChild(thumbnailState);
 
-    // ── Trigger state helpers ────────────────────────────────────────────────
+    // ── Trigger state helpers ─────────────────────────────────────────────────
     const showIcon = () => {
         iconState.classList.replace('hidden', 'flex');
         spinnerState.classList.add('hidden'); spinnerState.classList.remove('flex');
@@ -68,16 +71,43 @@ export function createUploadPicker({ anchorContainer, onSelect, onClear }) {
         thumbnailState.classList.add('hidden'); thumbnailState.classList.remove('flex');
     };
 
-    const showThumbnail = (src) => {
-        thumbImg.src = src;
+    const updateTrigger = () => {
+        if (selectedEntries.length === 0) {
+            showIcon();
+            trigger.title = maxImages > 1 ? `Add up to ${maxImages} images` : 'Reference image';
+            return;
+        }
+
+        // Show first image thumbnail
+        thumbImg.src = selectedEntries[0].thumbnail;
         iconState.classList.add('hidden'); iconState.classList.remove('flex');
         spinnerState.classList.add('hidden'); spinnerState.classList.remove('flex');
         thumbnailState.classList.replace('hidden', 'flex');
         trigger.classList.remove('border-white/10');
         trigger.classList.add('border-primary/60');
+
+        const count = selectedEntries.length;
+        const canAddMore = maxImages > 1 && count < maxImages;
+
+        if (count > 1) {
+            // Multiple selected — show count
+            countBadge.className = 'absolute bottom-0.5 right-0.5 min-w-[16px] h-4 bg-primary rounded-full flex items-center justify-center px-0.5';
+            countBadge.innerHTML = `<span class="text-[9px] font-black text-black leading-none">${count}</span>`;
+            trigger.title = `${count} of ${maxImages} images selected — click to manage`;
+        } else if (canAddMore) {
+            // 1 selected, multi-mode active — show "+" to invite adding more
+            countBadge.className = 'absolute bottom-0.5 right-0.5 min-w-[16px] h-4 bg-white/80 rounded-full flex items-center justify-center px-0.5 border border-primary/60';
+            countBadge.innerHTML = `<span class="text-[9px] font-black text-black leading-none">+</span>`;
+            trigger.title = `1 image selected — click to add more (up to ${maxImages})`;
+        } else {
+            // Single mode or at max — show checkmark
+            countBadge.className = 'absolute bottom-0.5 right-0.5 min-w-[16px] h-4 bg-primary rounded-full flex items-center justify-center px-0.5';
+            countBadge.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>`;
+            trigger.title = count > 1 ? `${count} images selected` : 'Reference image';
+        }
     };
 
-    // ── Panel ────────────────────────────────────────────────────────────────
+    // ── Panel ─────────────────────────────────────────────────────────────────
     const panel = document.createElement('div');
     panel.className = 'absolute z-50 opacity-0 pointer-events-none scale-95 origin-bottom-left glass rounded-3xl p-3 shadow-4xl border border-white/10 w-72 transition-all';
 
@@ -85,7 +115,6 @@ export function createUploadPicker({ anchorContainer, onSelect, onClear }) {
         renderPanel();
         panel.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
         panel.classList.add('opacity-100', 'pointer-events-auto', 'scale-100');
-        // Position relative to anchorContainer (matches existing dropdown math)
         const btnRect = trigger.getBoundingClientRect();
         const containerRect = anchorContainer.getBoundingClientRect();
         panel.style.left = `${btnRect.left - containerRect.left}px`;
@@ -99,21 +128,61 @@ export function createUploadPicker({ anchorContainer, onSelect, onClear }) {
         panelOpen = false;
     };
 
+    const fireOnSelect = () => {
+        if (selectedEntries.length === 0) return;
+        const urls = selectedEntries.map(e => e.url);
+        onSelect({
+            url: urls[0],           // backward-compatible single URL
+            urls,                   // full array for multi-image models
+            thumbnail: selectedEntries[0].thumbnail
+        });
+    };
+
     const renderPanel = () => {
         panel.innerHTML = '';
         const history = getUploadHistory();
+        const isMulti = maxImages > 1;
 
-        // Header
+        // ── Header ──
         const header = document.createElement('div');
         header.className = 'flex items-center justify-between px-1 pb-3 mb-2 border-b border-white/5';
-        header.innerHTML = `<span class="text-[10px] font-bold text-secondary uppercase tracking-widest">Reference Images</span>`;
+
+        const headerLeft = document.createElement('div');
+        headerLeft.className = 'flex flex-col gap-0.5';
+        headerLeft.innerHTML = `<span class="text-[10px] font-bold text-secondary uppercase tracking-widest">Reference Images</span>`;
+        if (isMulti) {
+            const hint = document.createElement('span');
+            hint.className = 'text-[9px] text-muted';
+            hint.textContent = `Select up to ${maxImages} images`;
+            headerLeft.appendChild(hint);
+        }
+        header.appendChild(headerLeft);
+
+        const headerRight = document.createElement('div');
+        headerRight.className = 'flex items-center gap-2';
+
+        // Done button (multi-select only)
+        if (isMulti && selectedEntries.length > 0) {
+            const doneBtn = document.createElement('button');
+            doneBtn.type = 'button';
+            doneBtn.className = 'flex items-center gap-1 px-3 py-1.5 bg-primary text-black rounded-xl text-xs font-black transition-all hover:scale-105';
+            doneBtn.innerHTML = `✓ Done (${selectedEntries.length})`;
+            doneBtn.onclick = (e) => {
+                e.stopPropagation();
+                closePanel();
+                fireOnSelect();
+            };
+            headerRight.appendChild(doneBtn);
+        }
 
         const uploadNewBtn = document.createElement('button');
         uploadNewBtn.type = 'button';
         uploadNewBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold transition-all border border-primary/20';
-        uploadNewBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload new`;
+        const uploadLabel = isMulti ? 'Upload files' : 'Upload new';
+        uploadNewBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> ${uploadLabel}`;
         uploadNewBtn.onclick = (e) => { e.stopPropagation(); closePanel(); fileInput.click(); };
-        header.appendChild(uploadNewBtn);
+        headerRight.appendChild(uploadNewBtn);
+        header.appendChild(headerRight);
         panel.appendChild(header);
 
         if (history.length === 0) {
@@ -127,12 +196,13 @@ export function createUploadPicker({ anchorContainer, onSelect, onClear }) {
             return;
         }
 
-        // Grid of saved uploads
+        // ── Grid ──
         const grid = document.createElement('div');
         grid.className = 'grid grid-cols-3 gap-2 max-h-56 overflow-y-auto custom-scrollbar pr-0.5';
 
         history.forEach(entry => {
-            const isSelected = selectedEntry?.url === entry.uploadedUrl;
+            const selIdx = selectedEntries.findIndex(e => e.url === entry.uploadedUrl);
+            const isSelected = selIdx !== -1;
 
             const cell = document.createElement('div');
             cell.className = `relative rounded-xl overflow-hidden border-2 cursor-pointer group/cell aspect-square transition-all ${isSelected ? 'border-primary shadow-glow' : 'border-white/10 hover:border-white/30'}`;
@@ -154,21 +224,33 @@ export function createUploadPicker({ anchorContainer, onSelect, onClear }) {
             delBtn.onclick = (e) => {
                 e.stopPropagation();
                 removeUpload(entry.id);
-                if (selectedEntry?.url === entry.uploadedUrl) {
-                    selectedEntry = null;
-                    showIcon();
-                    onClear?.();
+                const idx = selectedEntries.findIndex(e => e.url === entry.uploadedUrl);
+                if (idx !== -1) {
+                    selectedEntries.splice(idx, 1);
+                    updateTrigger();
+                    if (selectedEntries.length === 0) onClear?.();
                 }
                 renderPanel();
             };
             overlay.appendChild(delBtn);
 
-            // Selected checkmark badge
+            // Selection badge: order number (multi) or checkmark (single)
             if (isSelected) {
-                const check = document.createElement('div');
-                check.className = 'absolute top-1 left-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center';
-                check.innerHTML = `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>`;
-                cell.appendChild(check);
+                const badge = document.createElement('div');
+                badge.className = 'absolute top-1 left-1 min-w-[20px] h-5 bg-primary rounded-full flex items-center justify-center px-1';
+                if (isMulti) {
+                    badge.innerHTML = `<span class="text-[10px] font-black text-black">${selIdx + 1}</span>`;
+                } else {
+                    badge.innerHTML = `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>`;
+                }
+                cell.appendChild(badge);
+            }
+
+            // Not-yet-reachable dim (when at max)
+            const atMax = isMulti && !isSelected && selectedEntries.length >= maxImages;
+            if (atMax) {
+                cell.classList.add('opacity-40');
+                cell.style.cursor = 'not-allowed';
             }
 
             cell.appendChild(img);
@@ -176,19 +258,52 @@ export function createUploadPicker({ anchorContainer, onSelect, onClear }) {
 
             cell.onclick = (e) => {
                 e.stopPropagation();
-                selectedEntry = { url: entry.uploadedUrl, thumbnail: entry.thumbnail };
-                showThumbnail(entry.thumbnail);
-                onSelect({ url: entry.uploadedUrl, thumbnail: entry.thumbnail });
-                closePanel();
+                if (atMax) return; // can't select more
+
+                if (!isMulti) {
+                    // Single-select: select & close immediately
+                    selectedEntries = [{ url: entry.uploadedUrl, thumbnail: entry.thumbnail }];
+                    updateTrigger();
+                    fireOnSelect();
+                    closePanel();
+                } else {
+                    // Multi-select: toggle
+                    if (isSelected) {
+                        selectedEntries.splice(selIdx, 1);
+                        if (selectedEntries.length === 0) onClear?.();
+                    } else {
+                        selectedEntries.push({ url: entry.uploadedUrl, thumbnail: entry.thumbnail });
+                    }
+                    updateTrigger();
+                    renderPanel(); // re-render to update badges / dim state
+                }
             };
 
             grid.appendChild(cell);
         });
 
         panel.appendChild(grid);
+
+        // Bottom "Done" bar for multi-select (always visible when items selected)
+        if (isMulti && selectedEntries.length > 0) {
+            const bottomBar = document.createElement('div');
+            bottomBar.className = 'mt-3 pt-3 border-t border-white/5 flex items-center justify-between';
+            bottomBar.innerHTML = `<span class="text-xs text-secondary">${selectedEntries.length} of ${maxImages} selected</span>`;
+            const doneBtn2 = document.createElement('button');
+            doneBtn2.type = 'button';
+            doneBtn2.className = 'px-4 py-1.5 bg-primary text-black rounded-xl text-xs font-black transition-all hover:scale-105';
+            doneBtn2.textContent = 'Use Selected';
+            doneBtn2.onclick = (e) => {
+                e.stopPropagation();
+                closePanel();
+                fireOnSelect();
+            };
+            bottomBar.appendChild(doneBtn2);
+            panel.appendChild(bottomBar);
+        }
     };
 
-    // ── Trigger click ────────────────────────────────────────────────────────
+    // ── Trigger click ─────────────────────────────────────────────────────────
     trigger.onclick = (e) => {
         e.stopPropagation();
         if (panelOpen) closePanel();
@@ -198,10 +313,10 @@ export function createUploadPicker({ anchorContainer, onSelect, onClear }) {
     // Close panel on outside click
     window.addEventListener('click', closePanel);
 
-    // ── File upload handler ──────────────────────────────────────────────────
+    // ── File upload handler ───────────────────────────────────────────────────
     fileInput.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
 
         const apiKey = localStorage.getItem('muapi_key');
         if (!apiKey) {
@@ -212,39 +327,73 @@ export function createUploadPicker({ anchorContainer, onSelect, onClear }) {
         showSpinner();
 
         try {
-            // Upload to API and generate thumbnail in parallel
-            const [uploadedUrl, thumbnail] = await Promise.all([
-                muapi.uploadFile(file),
-                generateThumbnail(file)
-            ]);
+            if (maxImages === 1) {
+                // Single mode: upload first file only, replace selection
+                const file = files[0];
+                const [uploadedUrl, thumbnail] = await Promise.all([
+                    muapi.uploadFile(file),
+                    generateThumbnail(file)
+                ]);
+                const entry = { id: Date.now().toString(), name: file.name, uploadedUrl, thumbnail, timestamp: new Date().toISOString() };
+                saveUpload(entry);
+                selectedEntries = [{ url: uploadedUrl, thumbnail }];
+                updateTrigger();
+                fireOnSelect();
+            } else {
+                // Multi mode: upload all files (up to remaining slots)
+                const slots = maxImages - selectedEntries.length;
+                const toUpload = files.slice(0, Math.max(slots, 1));
 
-            const entry = {
-                id: Date.now().toString(),
-                name: file.name,
-                uploadedUrl,
-                thumbnail,
-                timestamp: new Date().toISOString()
-            };
+                // Upload all in parallel
+                const results = await Promise.all(toUpload.map(async (file) => {
+                    const [uploadedUrl, thumbnail] = await Promise.all([
+                        muapi.uploadFile(file),
+                        generateThumbnail(file)
+                    ]);
+                    return { id: Date.now().toString() + Math.random(), name: file.name, uploadedUrl, thumbnail, timestamp: new Date().toISOString() };
+                }));
 
-            saveUpload(entry);
-            selectedEntry = { url: uploadedUrl, thumbnail };
-            showThumbnail(thumbnail);
-            onSelect({ url: uploadedUrl, thumbnail });
+                results.forEach(entry => {
+                    saveUpload(entry);
+                    if (selectedEntries.length < maxImages) {
+                        selectedEntries.push({ url: entry.uploadedUrl, thumbnail: entry.thumbnail });
+                    }
+                });
+
+                updateTrigger();
+                // In multi-mode reopen panel so user can continue selecting / see Done button
+                openPanel();
+            }
         } catch (err) {
             console.error('[UploadPicker] Upload failed:', err);
-            showIcon();
+            updateTrigger();
             alert(`Image upload failed: ${err.message}`);
         }
 
         fileInput.value = '';
     };
 
-    // ── Public API ───────────────────────────────────────────────────────────
+    // ── Public API ────────────────────────────────────────────────────────────
     const reset = () => {
-        selectedEntry = null;
+        selectedEntries = [];
         showIcon();
         closePanel();
     };
 
-    return { trigger, panel, reset };
+    const setMaxImages = (n) => {
+        maxImages = n;
+        // Enable multi-file selection in file picker when multi-mode
+        fileInput.multiple = n > 1;
+        // Trim selection if exceeding new limit
+        if (selectedEntries.length > n) {
+            selectedEntries = selectedEntries.slice(0, n);
+            if (selectedEntries.length === 0) onClear?.();
+        }
+        // Always refresh trigger so badge/tooltip reflects new mode
+        updateTrigger();
+    };
+
+    const getSelectedUrls = () => selectedEntries.map(e => e.url);
+
+    return { trigger, panel, reset, setMaxImages, getSelectedUrls };
 }

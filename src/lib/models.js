@@ -2005,6 +2005,90 @@ export const t2iModels = [
         "step": 0.01
       }
     }
+  },
+  {
+    "id": "nano-banana-2",
+    "name": "Nano Banana 2",
+    "endpoint": "nano-banana-2",
+    "family": "nano",
+    "inputs": {
+      "prompt": {
+        "description": "Positive prompt for generation.",
+        "type": "string",
+        "title": "Prompt",
+        "name": "prompt",
+        "examples": [
+          "A futuristic cityscape with glowing neon lights reflected in rain-soaked streets, ultra-detailed 4K photography."
+        ]
+      },
+      "aspect_ratio": {
+        "enum": [
+          "1:1", "1:4", "1:8", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5",
+          "5:4", "8:1", "9:16", "16:9", "21:9", "auto"
+        ],
+        "title": "Aspect Ratio",
+        "name": "aspect_ratio",
+        "type": "string",
+        "description": "The aspect ratio of the generated image.",
+        "default": "auto"
+      },
+      "resolution": {
+        "enum": ["1k", "2k", "4k"],
+        "title": "Resolution",
+        "name": "resolution",
+        "type": "string",
+        "description": "The resolution of the generated image.",
+        "default": "1k"
+      },
+      "google_search": {
+        "title": "Google Search",
+        "name": "google_search",
+        "type": "boolean",
+        "description": "Whether to use Google Search for prompt enhancement.",
+        "default": false
+      },
+      "output_format": {
+        "enum": ["jpg", "png"],
+        "title": "Output Format",
+        "name": "output_format",
+        "type": "string",
+        "description": "The format of the output image.",
+        "default": "jpg"
+      }
+    }
+  },
+  {
+    "id": "seedream-5.0",
+    "name": "Seedream 5.0",
+    "endpoint": "seedream-5.0",
+    "family": "seedream",
+    "inputs": {
+      "prompt": {
+        "type": "string",
+        "title": "Prompt",
+        "name": "prompt",
+        "description": "Text prompt describing the image to generate.",
+        "examples": [
+          "A futuristic city with soaring crystalline towers, suspended gardens, and neon-lit skyways under a twin-moon sky, captured in a cinematic, high-detail digital art style."
+        ]
+      },
+      "aspect_ratio": {
+        "enum": ["1:1", "16:9", "9:16", "4:3", "3:4", "2:3", "3:2", "21:9"],
+        "title": "Aspect Ratio",
+        "name": "aspect_ratio",
+        "type": "string",
+        "description": "Aspect ratio of the output image.",
+        "default": "1:1"
+      },
+      "quality": {
+        "enum": ["basic", "high"],
+        "title": "Quality",
+        "name": "quality",
+        "type": "string",
+        "description": "Quality of the output image.",
+        "default": "basic"
+      }
+    }
   }
 ];
 
@@ -2519,6 +2603,7 @@ export const i2iModels = [
     "family": "kontext",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 10,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -2612,6 +2697,7 @@ export const i2iModels = [
     "family": "kontext",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 2,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -2647,6 +2733,7 @@ export const i2iModels = [
     "family": "kontext",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 2,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -2682,6 +2769,7 @@ export const i2iModels = [
     "family": "gpt",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 5,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -3260,6 +3348,7 @@ export const i2iModels = [
     "family": "nano",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 10,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -3358,6 +3447,7 @@ export const i2iModels = [
     "family": "seedream",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 10,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -3560,6 +3650,7 @@ export const i2iModels = [
     "family": "qwen",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 3,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -3599,6 +3690,7 @@ export const i2iModels = [
     "family": "wan2.5",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 2,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -3875,6 +3967,7 @@ export const i2iModels = [
     "family": "qwen",
     "imageField": "images_list",
     "hasPrompt": false,
+    "maxImages": 3,
     "inputs": {
       "rotate_right_left": {
         "type": "int",
@@ -3942,6 +4035,7 @@ export const i2iModels = [
     "family": "nano",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 8,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -4008,6 +4102,7 @@ export const i2iModels = [
     "family": "kling-o1",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 10,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -4056,6 +4151,7 @@ export const i2iModels = [
     "family": "flux-2",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 3,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -4095,6 +4191,7 @@ export const i2iModels = [
     "family": "flux-2",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 8,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -4142,6 +4239,7 @@ export const i2iModels = [
     "family": "flux-2",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 8,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -4189,6 +4287,7 @@ export const i2iModels = [
     "family": "vidu-q2",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 7,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -4238,6 +4337,7 @@ export const i2iModels = [
     "family": "seedream-v45",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 10,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -4285,6 +4385,7 @@ export const i2iModels = [
     "family": "qwen",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 3,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -4324,6 +4425,7 @@ export const i2iModels = [
     "family": "wan2.6",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 3,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -4382,6 +4484,7 @@ export const i2iModels = [
     "family": "gpt-1.5",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 10,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -4472,6 +4575,7 @@ export const i2iModels = [
     "family": "flux-2",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 4,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -4507,6 +4611,7 @@ export const i2iModels = [
     "family": "flux-2",
     "imageField": "images_list",
     "hasPrompt": true,
+    "maxImages": 4,
     "inputs": {
       "prompt": {
         "type": "string",
@@ -4570,6 +4675,95 @@ export const i2iModels = [
         "name": "scale",
         "description": "Watermark size relative to image (0.1 = 10%, 1.0 = 100%)",
         "default": 0.2
+      }
+    }
+  },
+  {
+    "id": "nano-banana-2-edit",
+    "name": "Nano Banana 2 Edit",
+    "endpoint": "nano-banana-2-edit",
+    "family": "nano",
+    "imageField": "images_list",
+    "hasPrompt": true,
+    "maxImages": 14,
+    "inputs": {
+      "prompt": {
+        "type": "string",
+        "title": "Prompt",
+        "name": "prompt",
+        "description": "Positive prompt for generation.",
+        "examples": [
+          "Transform the portrait into a cyberpunk style with neon lighting, metallic accessories, and a rain-soaked city background, maintaining the subject's facial features."
+        ]
+      },
+      "aspect_ratio": {
+        "enum": [
+          "1:1", "1:4", "1:8", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5",
+          "5:4", "8:1", "9:16", "16:9", "21:9", "auto"
+        ],
+        "title": "Aspect Ratio",
+        "name": "aspect_ratio",
+        "type": "string",
+        "description": "The aspect ratio of the generated image.",
+        "default": "auto"
+      },
+      "resolution": {
+        "enum": ["1k", "2k", "4k"],
+        "title": "Resolution",
+        "name": "resolution",
+        "type": "string",
+        "description": "The resolution of the generated image.",
+        "default": "1k"
+      },
+      "google_search": {
+        "title": "Google Search",
+        "name": "google_search",
+        "type": "boolean",
+        "description": "Whether to use Google Search for prompt enhancement.",
+        "default": false
+      },
+      "output_format": {
+        "enum": ["jpg", "png"],
+        "title": "Output Format",
+        "name": "output_format",
+        "type": "string",
+        "description": "The format of the output image.",
+        "default": "jpg"
+      }
+    }
+  },
+  {
+    "id": "seedream-5.0-edit",
+    "name": "Seedream 5.0 Edit",
+    "endpoint": "seedream-5.0-edit",
+    "family": "seedream",
+    "imageField": "images_list",
+    "hasPrompt": true,
+    "inputs": {
+      "prompt": {
+        "type": "string",
+        "title": "Prompt",
+        "name": "prompt",
+        "description": "Text prompt describing the desired modification.",
+        "examples": [
+          "Change the daytime forest scene to a moonlit winter landscape with shimmering snow on the trees and a soft blue glow from a distant cottage window."
+        ]
+      },
+      "aspect_ratio": {
+        "enum": ["1:1", "16:9", "9:16", "4:3", "3:4", "2:3", "3:2", "21:9"],
+        "title": "Aspect Ratio",
+        "name": "aspect_ratio",
+        "type": "string",
+        "description": "Aspect ratio of the output image.",
+        "default": "1:1"
+      },
+      "quality": {
+        "enum": ["basic", "high"],
+        "title": "Quality",
+        "name": "quality",
+        "type": "string",
+        "description": "Quality of the output image.",
+        "default": "basic"
       }
     }
   }
@@ -7707,7 +7901,40 @@ export const getResolutionsForI2VModel = (modelId) => {
 export const getResolutionsForI2IModel = (modelId) => {
     const model = getI2IModelById(modelId);
     if (!model) return [];
-    const res = model.inputs && model.inputs.resolution;
-    if (res && res.enum) return res.enum;
+    if (model.inputs?.resolution?.enum) return model.inputs.resolution.enum;
+    if (model.inputs?.quality?.enum) return model.inputs.quality.enum;
     return [];
+};
+
+// Returns the payload field name for quality/resolution for a t2i model ('resolution', 'quality', or null)
+export const getQualityFieldForModel = (modelId) => {
+    const model = getModelById(modelId);
+    if (!model) return null;
+    if (model.inputs?.resolution) return 'resolution';
+    if (model.inputs?.quality) return 'quality';
+    return null;
+};
+
+// Returns quality/resolution options for a t2i model
+export const getResolutionsForModel = (modelId) => {
+    const model = getModelById(modelId);
+    if (!model) return [];
+    if (model.inputs?.resolution?.enum) return model.inputs.resolution.enum;
+    if (model.inputs?.quality?.enum) return model.inputs.quality.enum;
+    return [];
+};
+
+// Returns the payload field name for quality/resolution for an i2i model ('resolution', 'quality', or null)
+export const getQualityFieldForI2IModel = (modelId) => {
+    const model = getI2IModelById(modelId);
+    if (!model) return null;
+    if (model.inputs?.resolution) return 'resolution';
+    if (model.inputs?.quality) return 'quality';
+    return null;
+};
+
+// Returns the maximum number of images an i2i model accepts (defaults to 1)
+export const getMaxImagesForI2IModel = (modelId) => {
+    const model = getI2IModelById(modelId);
+    return model?.maxImages || 1;
 };

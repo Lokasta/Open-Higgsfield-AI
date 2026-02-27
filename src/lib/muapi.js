@@ -47,6 +47,11 @@ export class MuapiClient {
             finalPayload.resolution = params.resolution;
         }
 
+        // Quality (used by seedream and similar models)
+        if (params.quality) {
+            finalPayload.quality = params.quality;
+        }
+
         // Image-to-Image
         if (params.image_url) {
             finalPayload.image_url = params.image_url;
@@ -234,18 +239,20 @@ export class MuapiClient {
         // Only include prompt if the model supports it and one was provided
         if (params.prompt) finalPayload.prompt = params.prompt;
 
-        // Place the uploaded image in the correct field for this model
+        // Place the uploaded image(s) in the correct field for this model
         const imageField = modelInfo?.imageField || 'image_url';
-        if (params.image_url) {
+        const imagesList = params.images_list?.length > 0 ? params.images_list : (params.image_url ? [params.image_url] : null);
+        if (imagesList) {
             if (imageField === 'images_list') {
-                finalPayload.images_list = [params.image_url];
+                finalPayload.images_list = imagesList;
             } else {
-                finalPayload[imageField] = params.image_url;
+                finalPayload[imageField] = imagesList[0];
             }
         }
 
         if (params.aspect_ratio) finalPayload.aspect_ratio = params.aspect_ratio;
         if (params.resolution) finalPayload.resolution = params.resolution;
+        if (params.quality) finalPayload.quality = params.quality;
 
         console.log('[Muapi] I2I Request:', url);
         console.log('[Muapi] I2I Payload:', finalPayload);
