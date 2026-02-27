@@ -2033,12 +2033,12 @@ export const t2iModels = [
         "default": "auto"
       },
       "resolution": {
-        "enum": ["1K", "2K", "4K"],
+        "enum": ["1k", "2k", "4k"],
         "title": "Resolution",
         "name": "resolution",
         "type": "string",
         "description": "The resolution of the generated image.",
-        "default": "1K"
+        "default": "1k"
       },
       "google_search": {
         "title": "Google Search",
@@ -4708,12 +4708,12 @@ export const i2iModels = [
         "default": "auto"
       },
       "resolution": {
-        "enum": ["1K", "2K", "4K"],
+        "enum": ["1k", "2k", "4k"],
         "title": "Resolution",
         "name": "resolution",
         "type": "string",
         "description": "The resolution of the generated image.",
-        "default": "1K"
+        "default": "1k"
       },
       "google_search": {
         "title": "Google Search",
