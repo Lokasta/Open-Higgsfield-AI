@@ -1,4 +1,4 @@
-import { t2iModels, i2iModels, getAspectRatiosForModel, getAspectRatiosForI2IModel, getResolutionsForModel, getQualityFieldForModel } from '../../lib/models.js';
+import { t2iModels, i2iModels, getAspectRatiosForModel, getAspectRatiosForI2IModel, getResolutionsForModel, getQualityFieldForModel, getI2IModelById } from '../../lib/models.js';
 import { drawHeader, handleHeaderClick, handleHeaderMove, handleTitleDblClick, getContentY } from '../nodeHeader.js';
 import { drawPreview, handlePreviewClick, handlePreviewMove } from '../nodePreview.js';
 
@@ -111,7 +111,23 @@ export function registerImageGeneratorNode() {
       } else {
         params.image_url = imagesList[0] || imageUrl;
       }
-      result = await muapi.generateI2I(params);
+
+      // If the selected model is a t2i model (not found in i2iModels),
+      // try to find a matching i2i variant before calling generateI2I.
+      const isI2IModel = !!getI2IModelById(params.model);
+      if (!isI2IModel) {
+        // Try common i2i variant naming: "{id}-edit"
+        const editVariant = getI2IModelById(params.model + '-edit');
+        if (editVariant) {
+          params.model = editVariant.id;
+          result = await muapi.generateI2I(params);
+        } else {
+          // No i2i variant found — fall back to t2i endpoint with image_url
+          result = await muapi.generateImage(params);
+        }
+      } else {
+        result = await muapi.generateI2I(params);
+      }
     } else {
       result = await muapi.generateImage(params);
     }

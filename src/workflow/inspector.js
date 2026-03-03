@@ -183,7 +183,8 @@ function createSearchableSelect(models, currentValue, onChange) {
   }
 
   input.onfocus = () => {
-    renderList(input.value);
+    input.select();
+    renderList('');
     dropdown.style.display = 'block';
   };
 
