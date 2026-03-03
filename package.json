@@ -16,8 +16,12 @@
     "vite": "^5.4.0"
   },
   "dependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.59.0",
+    "@tailwindcss/oxide-darwin-arm64": "^4.2.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/vite": "^4.1.18",
+    "lightningcss-darwin-arm64": "^1.31.1",
+    "litegraph.js": "^0.7.18",
     "puppeteer": "^24.37.2"
   }
 }

@@ -20,6 +20,10 @@ function navigate(page) {
     import('./components/CinemaStudio.js').then(({ CinemaStudio }) => {
       contentArea.appendChild(CinemaStudio());
     });
+  } else if (page === 'workflow') {
+    import('./components/WorkflowEditor.js').then(async ({ WorkflowEditor }) => {
+      contentArea.appendChild(await WorkflowEditor());
+    });
   }
 }
 

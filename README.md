@@ -132,7 +132,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser. You'll be prompted to enter your Muapi API key on first use.
+Open `http://localhost:5174` in your browser. You'll be prompted to enter your Muapi API key on first use.
 
 ### Production Build
 
