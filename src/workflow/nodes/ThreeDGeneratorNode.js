@@ -61,5 +61,16 @@ export function registerThreeDGeneratorNode() {
     return { model3d: '' };
   };
 
+  ThreeDGeneratorNode.prototype.onSerialize = function(data) {
+    if (this._wfOutputs) data._wfOutputs = this._wfOutputs;
+  };
+
+  ThreeDGeneratorNode.prototype.onConfigure = function(data) {
+    if (data._wfOutputs) {
+      this._wfOutputs = data._wfOutputs;
+      this._wfStatus = 'complete';
+    }
+  };
+
   LiteGraph.registerNodeType('generator/3d', ThreeDGeneratorNode);
 }

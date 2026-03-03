@@ -4,7 +4,7 @@ import { applyDarkTheme, SLOT_COLORS } from '../workflow/theme.js';
 import { createPalette } from '../workflow/palette.js';
 import { createInspector } from '../workflow/inspector.js';
 import { WorkflowEngine } from '../workflow/engine.js';
-import { saveWorkflow, loadWorkflow, deleteWorkflow, listWorkflows } from '../workflow/persistence.js';
+import { saveWorkflow, loadWorkflow, deleteWorkflow, listWorkflows, saveSession, loadSession, clearSession } from '../workflow/persistence.js';
 
 let nodesRegistered = false;
 
@@ -45,6 +45,7 @@ export async function WorkflowEditor() {
   const saveBtn = createToolbarBtn('Save', () => {
     const entry = saveWorkflow(graph, currentWorkflowName, currentWorkflowId);
     currentWorkflowId = entry.id;
+    saveSession(graph, currentWorkflowName);
     showToast('Workflow saved');
   });
 
@@ -93,6 +94,7 @@ export async function WorkflowEditor() {
             currentWorkflowId = entry.id;
             currentWorkflowName = entry.name;
             nameInput.value = entry.name;
+            saveSession(graph, entry.name);
             showToast(`Loaded: ${entry.name}`);
           }
           loadDropdown.style.display = 'none';
@@ -110,6 +112,7 @@ export async function WorkflowEditor() {
     deleteWorkflow(currentWorkflowId);
     currentWorkflowId = null;
     graph.clear();
+    clearSession();
     showToast('Workflow deleted');
   });
 
@@ -316,6 +319,31 @@ export async function WorkflowEditor() {
 
     // Start graph
     graph.start();
+
+    // Auto-restore last session
+    const session = loadSession();
+    if (session && session.data) {
+      try {
+        graph.configure(session.data);
+        if (session.name) {
+          currentWorkflowName = session.name;
+          nameInput.value = session.name;
+        }
+        lgCanvas.setDirty(true, true);
+      } catch (e) {
+        console.warn('[Workflow] Session restore failed:', e);
+      }
+    }
+
+    // Auto-save session every 10 seconds
+    setInterval(() => {
+      saveSession(graph, currentWorkflowName);
+    }, 10000);
+
+    // Also save session on beforeunload
+    window.addEventListener('beforeunload', () => {
+      saveSession(graph, currentWorkflowName);
+    });
   });
 
   // ============ TOAST ============

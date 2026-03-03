@@ -143,5 +143,26 @@ export function registerImageGeneratorNode() {
     return { image: result.url || '' };
   };
 
+  ImageGeneratorNode.prototype.onSerialize = function(data) {
+    if (this._previewUrl) data._previewUrl = this._previewUrl;
+    if (this._previewType) data._previewType = this._previewType;
+    if (this._wfOutputs) data._wfOutputs = this._wfOutputs;
+  };
+
+  ImageGeneratorNode.prototype.onConfigure = function(data) {
+    if (data._previewUrl) {
+      this._previewUrl = data._previewUrl;
+      this._previewType = data._previewType || 'image';
+      this._img = new Image();
+      this._img.crossOrigin = 'anonymous';
+      this._img.onload = () => this.setDirtyCanvas(true);
+      this._img.src = data._previewUrl;
+    }
+    if (data._wfOutputs) {
+      this._wfOutputs = data._wfOutputs;
+      this._wfStatus = 'complete';
+    }
+  };
+
   LiteGraph.registerNodeType('generator/image', ImageGeneratorNode);
 }

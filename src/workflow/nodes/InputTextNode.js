@@ -67,5 +67,13 @@ export function registerInputTextNode() {
     return wrap;
   };
 
+  // ═══════════════ CONFIGURE (persistence) ═══════════════
+
+  InputTextNode.prototype.onConfigure = function(data) {
+    if (this.properties.text) {
+      this._wfOutputs = { text: this.properties.text };
+    }
+  };
+
   LiteGraph.registerNodeType('input/text', InputTextNode);
 }

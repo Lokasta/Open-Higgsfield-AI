@@ -58,5 +58,16 @@ export function registerAudioGeneratorNode() {
     return { audio: '' };
   };
 
+  AudioGeneratorNode.prototype.onSerialize = function(data) {
+    if (this._wfOutputs) data._wfOutputs = this._wfOutputs;
+  };
+
+  AudioGeneratorNode.prototype.onConfigure = function(data) {
+    if (data._wfOutputs) {
+      this._wfOutputs = data._wfOutputs;
+      this._wfStatus = 'complete';
+    }
+  };
+
   LiteGraph.registerNodeType('generator/audio', AudioGeneratorNode);
 }

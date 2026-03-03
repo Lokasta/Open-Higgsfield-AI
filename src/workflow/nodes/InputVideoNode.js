@@ -66,5 +66,13 @@ export function registerInputVideoNode() {
     return { video: this.properties.url || '' };
   };
 
+  // ═══════════════ CONFIGURE (persistence) ═══════════════
+
+  InputVideoNode.prototype.onConfigure = function(data) {
+    if (this.properties.url) {
+      this._wfOutputs = { video: this.properties.url };
+    }
+  };
+
   LiteGraph.registerNodeType('input/video', InputVideoNode);
 }

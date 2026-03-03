@@ -117,5 +117,20 @@ export function registerLLMGeneratorNode() {
     return { text: fullPrompt };
   };
 
+  LLMGeneratorNode.prototype.onSerialize = function(data) {
+    if (this._outputText) data._outputText = this._outputText;
+    if (this._wfOutputs) data._wfOutputs = this._wfOutputs;
+  };
+
+  LLMGeneratorNode.prototype.onConfigure = function(data) {
+    if (data._outputText) {
+      this._outputText = data._outputText;
+    }
+    if (data._wfOutputs) {
+      this._wfOutputs = data._wfOutputs;
+      this._wfStatus = 'complete';
+    }
+  };
+
   LiteGraph.registerNodeType('generator/llm', LLMGeneratorNode);
 }

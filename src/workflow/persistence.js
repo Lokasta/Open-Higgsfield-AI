@@ -16,14 +16,6 @@ export function saveWorkflow(graph, name, existingId) {
   const workflows = getAll();
   const data = graph.serialize();
 
-  // Strip runtime outputs from nodes before saving
-  if (data.nodes) {
-    data.nodes.forEach(n => {
-      delete n._outputData;
-      delete n._status;
-    });
-  }
-
   const now = Date.now();
 
   if (existingId) {
@@ -64,4 +56,30 @@ export function deleteWorkflow(id) {
 
 export function listWorkflows() {
   return getAll().map(({ id, name, createdAt, updatedAt }) => ({ id, name, createdAt, updatedAt }));
+}
+
+const SESSION_KEY = 'muapi_workflow_session';
+
+export function saveSession(graph, name) {
+  try {
+    const data = graph.serialize();
+    const session = { name, data, savedAt: Date.now() };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } catch (e) {
+    console.warn('[Workflow] Session save failed:', e);
+  }
+}
+
+export function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
 }

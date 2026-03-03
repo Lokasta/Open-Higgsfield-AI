@@ -66,5 +66,13 @@ export function registerInput3DModelNode() {
     return { model3d: this.properties.url || '' };
   };
 
+  // ═══════════════ CONFIGURE (persistence) ═══════════════
+
+  Input3DModelNode.prototype.onConfigure = function(data) {
+    if (this.properties.url) {
+      this._wfOutputs = { model3d: this.properties.url };
+    }
+  };
+
   LiteGraph.registerNodeType('input/3d_model', Input3DModelNode);
 }

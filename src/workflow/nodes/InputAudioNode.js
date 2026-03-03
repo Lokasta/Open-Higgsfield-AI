@@ -66,5 +66,13 @@ export function registerInputAudioNode() {
     return { audio: this.properties.url || '' };
   };
 
+  // ═══════════════ CONFIGURE (persistence) ═══════════════
+
+  InputAudioNode.prototype.onConfigure = function(data) {
+    if (this.properties.url) {
+      this._wfOutputs = { audio: this.properties.url };
+    }
+  };
+
   LiteGraph.registerNodeType('input/audio', InputAudioNode);
 }

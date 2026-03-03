@@ -451,6 +451,37 @@ export function registerInputImageNode() {
     return wrap;
   };
 
+  // ═══════════════ SERIALIZE / CONFIGURE (persistence) ═══════════════
+
+  InputImageNode.prototype.onSerialize = function(data) {
+    if (this._wfOutputs) data._wfOutputs = this._wfOutputs;
+  };
+
+  InputImageNode.prototype.onConfigure = function(data) {
+    // Re-create Image objects from saved URLs
+    this._imgs = [];
+    if (this.properties.urls && this.properties.urls.length > 0) {
+      this.properties.urls.forEach((url, i) => {
+        if (url) {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => this.setDirtyCanvas(true);
+          img.src = url;
+          this._imgs[i] = img;
+        }
+      });
+    }
+    // Restore workflow outputs so downstream nodes can read them
+    if (this.properties.urls && this.properties.urls.some(u => u)) {
+      this._wfOutputs = {
+        image: this.properties.urls.filter(u => u)[0] || '',
+        images: this.properties.urls.filter(u => u),
+      };
+    }
+    // Restore saved _wfOutputs if present in serialized data
+    if (data._wfOutputs) this._wfOutputs = data._wfOutputs;
+  };
+
   LiteGraph.registerNodeType('input/image', InputImageNode);
 }
 
