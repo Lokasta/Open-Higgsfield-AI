@@ -1,7 +1,7 @@
 import {
   t2vModels, i2vModels,
-  getAspectRatiosForVideoModel, getDurationsForModel, getResolutionsForVideoModel,
-  getI2VModelById, getAspectRatiosForI2VModel, getDurationsForI2VModel, getResolutionsForI2VModel,
+  getAspectRatiosForVideoModel, getDurationsForModel, getResolutionsForVideoModel, getQualityOptionsForVideoModel,
+  getI2VModelById, getAspectRatiosForI2VModel, getDurationsForI2VModel, getResolutionsForI2VModel, getQualityOptionsForI2VModel,
   getMaxImagesForI2VModel, getExtraInputsForI2VModel, getTailImageFieldForI2VModel,
 } from '../../lib/models.js';
 import { drawHeader, handleHeaderClick, handleHeaderMove, handleTitleDblClick, getContentY } from '../nodeHeader.js';
@@ -19,6 +19,7 @@ export function registerVideoGeneratorNode() {
       aspect_ratio: '16:9',
       duration: '',
       resolution: '',
+      quality: '',
       extras: {},
     };
     this.size = [280, 140];
@@ -49,17 +50,21 @@ export function registerVideoGeneratorNode() {
       const ars = getAspectRatiosForI2VModel(modelId);
       const durations = getDurationsForI2VModel(modelId);
       const resolutions = getResolutionsForI2VModel(modelId);
+      const qualities = getQualityOptionsForI2VModel(modelId);
       this._enums = {};
       if (ars && ars.length) this._enums.aspect_ratio = ars;
       if (durations && durations.length) this._enums.duration = durations;
       if (resolutions && resolutions.length) this._enums.resolution = resolutions;
+      if (qualities && qualities.length) this._enums.quality = qualities;
     } else {
       const ars = getAspectRatiosForVideoModel(modelId) || ['16:9', '9:16', '1:1'];
       const durations = getDurationsForModel(modelId);
       const resolutions = getResolutionsForVideoModel(modelId);
+      const qualities = getQualityOptionsForVideoModel(modelId);
       this._enums = { aspect_ratio: ars };
       if (durations && durations.length) this._enums.duration = durations;
       if (resolutions && resolutions.length) this._enums.resolution = resolutions;
+      if (qualities && qualities.length) this._enums.quality = qualities;
     }
 
     // --- Extra model-specific inputs (e.g. camera_fixed) ---
@@ -159,6 +164,7 @@ export function registerVideoGeneratorNode() {
     };
     if (this.properties.duration) params.duration = this.properties.duration;
     if (this.properties.resolution) params.resolution = this.properties.resolution;
+    if (this.properties.quality) params.quality = this.properties.quality;
 
     // Collect all reference images
     const allImages = [];

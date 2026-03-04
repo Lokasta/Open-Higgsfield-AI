@@ -2531,6 +2531,23 @@ export const getResolutionsForVideoModel = (modelId) => {
   if (resInput && resInput.enum) return resInput.enum;
   return [];
 };
+
+export const getQualityOptionsForVideoModel = (modelId) => {
+  const model = getVideoModelById(modelId);
+  if (!model) return [];
+  const qInput = model.inputs?.quality;
+  if (qInput && qInput.enum) return qInput.enum;
+  return [];
+};
+
+export const getQualityOptionsForI2VModel = (modelId) => {
+  const model = getI2VModelById(modelId);
+  if (!model) return [];
+  const qInput = model.inputs?.quality;
+  if (qInput && qInput.enum) return qInput.enum;
+  return [];
+};
+
 // Auto-generated from schema_data.json — Image to Image models
 export const i2iModels = [
   {
@@ -7889,6 +7906,7 @@ export const i2vModels = [
     "endpoint": "seedance-v2.0-i2v",
     "family": "seedance-v2.0",
     "imageField": "images_list",
+    "maxImages": 9,
     "hasPrompt": true,
     "inputs": {
       "prompt": {
