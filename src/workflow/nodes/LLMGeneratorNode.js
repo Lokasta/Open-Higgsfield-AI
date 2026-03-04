@@ -6,7 +6,7 @@ export function registerLLMGeneratorNode() {
     this.addInput('context', 'string');
     this.addOutput('text', 'string');
     this.properties = {
-      model: 'gpt-4o',
+      model: 'gpt-5-mini',
       system_prompt: 'You are a helpful assistant.',
       temperature: 0.7,
     };
@@ -15,11 +15,9 @@ export function registerLLMGeneratorNode() {
     this.bgcolor = '#1a1a08';
 
     this._modelList = [
-      { id: 'gpt-4o', name: 'GPT-4o' },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-      { id: 'gemini-pro', name: 'Gemini Pro' },
-      { id: 'gemini-flash', name: 'Gemini Flash' },
-      { id: 'claude-sonnet', name: 'Claude Sonnet' },
+      { id: 'gpt-5-mini', name: 'GPT-5 Mini', endpoint: 'gpt-5-mini' },
+      { id: 'gpt-5-nano', name: 'GPT-5 Nano', endpoint: 'gpt-5-nano' },
+      { id: 'openrouter-vision', name: 'OpenRouter Vision', endpoint: 'openrouter-vision' },
     ];
     this._enums = {};
     this._outputText = '';
@@ -71,6 +69,7 @@ export function registerLLMGeneratorNode() {
   };
 
   LLMGeneratorNode.prototype.onInspector = function() {
+    const node = this;
     const wrap = document.createElement('div');
 
     const sysField = document.createElement('div');
@@ -102,6 +101,31 @@ export function registerLLMGeneratorNode() {
     tempField.appendChild(tempInput);
     wrap.appendChild(tempField);
 
+    // ── Output (editable) ──
+    const outLabel = document.createElement('div');
+    outLabel.className = 'inspector-label';
+    outLabel.style.marginTop = '12px';
+    outLabel.style.paddingTop = '8px';
+    outLabel.style.borderTop = '1px solid rgba(255,255,255,0.06)';
+    outLabel.textContent = this._outputText ? 'OUTPUT (editable)' : 'OUTPUT (run to generate)';
+    wrap.appendChild(outLabel);
+
+    const outField = document.createElement('div');
+    outField.className = 'inspector-field';
+    const outTa = document.createElement('textarea');
+    outTa.rows = 5;
+    outTa.placeholder = 'Run the node to generate text...';
+    outTa.value = this._outputText || '';
+    if (!this._outputText && !this._wfOutputs?.text) outTa.disabled = true;
+    outTa.oninput = () => {
+      node._outputText = outTa.value;
+      if (!node._wfOutputs) node._wfOutputs = {};
+      node._wfOutputs.text = outTa.value;
+      node.setDirtyCanvas(true);
+    };
+    outField.appendChild(outTa);
+    wrap.appendChild(outField);
+
     return wrap;
   };
 
@@ -110,11 +134,24 @@ export function registerLLMGeneratorNode() {
     const context = inputs.context || '';
     const fullPrompt = context ? `${context}\n\n${prompt}` : prompt;
 
-    console.log('[LLMGenerator] Would call LLM with:', { model: this.properties.model, prompt: fullPrompt });
-    this._outputText = fullPrompt;
+    if (!fullPrompt.trim()) {
+      this._outputText = '';
+      return { text: '' };
+    }
+
+    const modelInfo = this._modelList.find(m => m.id === this.properties.model);
+    const result = await muapi.generateChat({
+      model: this.properties.model,
+      endpoint: modelInfo?.endpoint || this.properties.model,
+      prompt: fullPrompt,
+      system_prompt: this.properties.system_prompt,
+      temperature: this.properties.temperature,
+    });
+
+    this._outputText = result.text || '';
     this.setDirtyCanvas(true);
 
-    return { text: fullPrompt };
+    return { text: this._outputText };
   };
 
   LLMGeneratorNode.prototype.onSerialize = function(data) {

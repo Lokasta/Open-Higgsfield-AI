@@ -1,4 +1,9 @@
-import { t2vModels, i2vModels, getAspectRatiosForVideoModel, getDurationsForModel, getResolutionsForVideoModel } from '../../lib/models.js';
+import {
+  t2vModels, i2vModels,
+  getAspectRatiosForVideoModel, getDurationsForModel, getResolutionsForVideoModel,
+  getI2VModelById, getAspectRatiosForI2VModel, getDurationsForI2VModel, getResolutionsForI2VModel,
+  getMaxImagesForI2VModel, getExtraInputsForI2VModel, getTailImageFieldForI2VModel,
+} from '../../lib/models.js';
 import { drawHeader, handleHeaderClick, handleHeaderMove, handleTitleDblClick, getContentY } from '../nodeHeader.js';
 import { drawPreview, handlePreviewClick, handlePreviewMove } from '../nodePreview.js';
 
@@ -6,12 +11,15 @@ export function registerVideoGeneratorNode() {
   function VideoGeneratorNode() {
     this.addInput('prompt', 'string');
     this.addInput('image', 'image');
+    this.addInput('images', 'collection');
+    this.addInput('last frame', 'image');
     this.addOutput('video', 'video');
     this.properties = {
       model: t2vModels[0]?.id || 'wan-2.1-t2v',
       aspect_ratio: '16:9',
       duration: '',
       resolution: '',
+      extras: {},
     };
     this.size = [280, 140];
     this._defaultSize = [280, 140];
@@ -24,24 +32,61 @@ export function registerVideoGeneratorNode() {
 
     this._modelList = [...t2vModels, ...i2vModels];
     this._enums = {};
+    this._extraInputDefs = {};
     this._updateEnums();
   }
 
   VideoGeneratorNode.title = 'Video Generator';
   VideoGeneratorNode.desc = 'Generate videos using AI models (t2v/i2v)';
 
+  // Update enums and extra fields when model changes
   VideoGeneratorNode.prototype._updateEnums = function() {
-    const ars = getAspectRatiosForVideoModel(this.properties.model) || ['16:9', '9:16', '1:1'];
-    const durations = getDurationsForModel(this.properties.model);
-    const resolutions = getResolutionsForVideoModel(this.properties.model);
-    this._enums = { aspect_ratio: ars };
-    if (durations && durations.length) this._enums.duration = durations;
-    if (resolutions && resolutions.length) this._enums.resolution = resolutions;
+    const modelId = this.properties.model;
+    const isI2V = !!getI2VModelById(modelId);
+
+    // --- Enums ---
+    if (isI2V) {
+      const ars = getAspectRatiosForI2VModel(modelId);
+      const durations = getDurationsForI2VModel(modelId);
+      const resolutions = getResolutionsForI2VModel(modelId);
+      this._enums = {};
+      if (ars && ars.length) this._enums.aspect_ratio = ars;
+      if (durations && durations.length) this._enums.duration = durations;
+      if (resolutions && resolutions.length) this._enums.resolution = resolutions;
+    } else {
+      const ars = getAspectRatiosForVideoModel(modelId) || ['16:9', '9:16', '1:1'];
+      const durations = getDurationsForModel(modelId);
+      const resolutions = getResolutionsForVideoModel(modelId);
+      this._enums = { aspect_ratio: ars };
+      if (durations && durations.length) this._enums.duration = durations;
+      if (resolutions && resolutions.length) this._enums.resolution = resolutions;
+    }
+
+    // --- Extra model-specific inputs (e.g. camera_fixed) ---
+    this._extraInputDefs = isI2V ? getExtraInputsForI2VModel(modelId) : {};
+
+    // Init extra properties
+    for (const [key, def] of Object.entries(this._extraInputDefs)) {
+      if (this.properties.extras[key] === undefined) {
+        this.properties.extras[key] = def.default !== undefined ? def.default : '';
+      }
+    }
+
+    // --- Capabilities summary ---
+    const hasTailImage = !!getTailImageFieldForI2VModel(modelId);
+    const maxImages = isI2V ? getMaxImagesForI2VModel(modelId) : 1;
+    this._capabilities = { isI2V, hasTailImage, maxImages };
   };
 
   VideoGeneratorNode.prototype.onModelChange = function(modelId) {
     this.properties.model = modelId;
+    // Reset extras for new model
+    this.properties.extras = {};
     this._updateEnums();
+    // Ensure aspect_ratio is valid for the new model
+    if (this._enums.aspect_ratio && !this._enums.aspect_ratio.includes(this.properties.aspect_ratio)) {
+      this.properties.aspect_ratio = this._enums.aspect_ratio[0] || '16:9';
+    }
   };
 
   VideoGeneratorNode.prototype.onDrawForeground = function(ctx) {
@@ -50,10 +95,19 @@ export function registerVideoGeneratorNode() {
 
     const y0 = getContentY(this);
     const model = this._modelList.find(m => m.id === this.properties.model);
+
     ctx.fillStyle = '#71717a';
     ctx.font = '10px Inter, system-ui, sans-serif';
     ctx.fillText(`Model: ${model?.name || this.properties.model}`, 10, y0);
-    ctx.fillText(`AR: ${this.properties.aspect_ratio}`, 10, y0 + 14);
+
+    let infoLine = `AR: ${this.properties.aspect_ratio}`;
+    const caps = this._capabilities;
+    if (caps) {
+      if (caps.hasTailImage) infoLine += ' | Start+End Frame';
+      else if (caps.maxImages > 1) infoLine += ` | Refs: up to ${caps.maxImages}`;
+      if (!caps.isI2V) infoLine += ' | T2V';
+    }
+    ctx.fillText(infoLine, 10, y0 + 14);
 
     // Preview with overlay buttons
     drawPreview(ctx, this);
@@ -83,27 +137,96 @@ export function registerVideoGeneratorNode() {
   };
 
   VideoGeneratorNode.prototype.onWorkflowExecute = async function(inputs, muapi) {
-    const prompt = inputs.prompt || '';
+    const promptText = inputs.prompt || '';
     const imageUrl = inputs.image || '';
+    const imagesList = inputs.images || [];
+    const tailImageUrl = inputs['last frame'] || '';
+    const isI2V = !!getI2VModelById(this.properties.model);
+
+    console.log('[VideoGen] Inputs:', {
+      prompt: promptText?.slice(0, 50),
+      image: imageUrl ? imageUrl.slice(0, 60) + '...' : '(none)',
+      images: imagesList.length,
+      lastFrame: tailImageUrl ? tailImageUrl.slice(0, 60) + '...' : '(none)',
+      model: this.properties.model,
+      isI2V,
+    });
+
     const params = {
       model: this.properties.model,
-      prompt,
+      prompt: promptText,
       aspect_ratio: this.properties.aspect_ratio,
     };
     if (this.properties.duration) params.duration = this.properties.duration;
     if (this.properties.resolution) params.resolution = this.properties.resolution;
 
+    // Collect all reference images
+    const allImages = [];
+    if (imagesList.length > 0) {
+      allImages.push(...imagesList);
+    } else if (imageUrl) {
+      allImages.push(imageUrl);
+    }
+
+    // Determine if we should use the I2V path
+    const hasImages = allImages.length > 0;
+    const hasTail = !!tailImageUrl;
+    const needsI2V = isI2V || hasImages || hasTail;
+
     let result;
-    if (imageUrl) {
-      params.image_url = imageUrl;
-      result = await muapi.generateI2V(params);
+    if (needsI2V) {
+      // Find or resolve I2V model
+      let i2vModel = getI2VModelById(params.model);
+      if (!i2vModel) {
+        const variants = [
+          params.model.replace('-t2v', '-i2v'),
+          params.model + '-i2v',
+        ];
+        for (const v of variants) {
+          if (getI2VModelById(v)) {
+            i2vModel = getI2VModelById(v);
+            params.model = v;
+            break;
+          }
+        }
+      }
+
+      console.log('[VideoGen] I2V resolution:', {
+        originalModel: this.properties.model,
+        resolvedModel: params.model,
+        i2vFound: !!i2vModel,
+        hasImages,
+        hasTail,
+        tailImageField: i2vModel?.tailImageField,
+      });
+
+      if (i2vModel && (hasImages || hasTail)) {
+        if (allImages.length > 1) {
+          params.images_list = allImages;
+        } else if (allImages.length === 1) {
+          params.image_url = allImages[0];
+        }
+        // Pass tail/end frame image
+        if (hasTail) params.tail_image_url = tailImageUrl;
+        // Pass extra model-specific params
+        if (Object.keys(this.properties.extras).length > 0) {
+          params.extras = this.properties.extras;
+        }
+        result = await muapi.generateI2V(params);
+      } else if (hasImages) {
+        // No i2v variant found, pass image to t2v endpoint (some support it)
+        params.image_url = allImages[0];
+        result = await muapi.generateVideo(params);
+      } else {
+        // I2V model selected but no images at all — fall back to t2v
+        result = await muapi.generateVideo(params);
+      }
     } else {
       result = await muapi.generateVideo(params);
     }
 
     if (result.url) {
       this._previewUrl = result.url;
-      // Extract first frame as thumbnail using a video element
       this._extractVideoThumb(result.url);
     }
 
@@ -117,7 +240,7 @@ export function registerVideoGeneratorNode() {
     video.preload = 'auto';
 
     video.onloadeddata = () => {
-      video.currentTime = 0.1; // seek to get a good frame
+      video.currentTime = 0.1;
     };
 
     video.onseeked = () => {
@@ -137,7 +260,6 @@ export function registerVideoGeneratorNode() {
     };
 
     video.onerror = () => {
-      // If video thumb extraction fails, still show a placeholder
       video.remove();
     };
 
@@ -151,6 +273,8 @@ export function registerVideoGeneratorNode() {
   };
 
   VideoGeneratorNode.prototype.onConfigure = function(data) {
+    this._updateEnums();
+
     if (data._previewUrl) {
       this._previewUrl = data._previewUrl;
       this._previewType = data._previewType || 'video';

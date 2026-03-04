@@ -6941,6 +6941,7 @@ export const i2vModels = [
     "endpoint": "vidu-q2-turbo-start-end-video",
     "family": "vidu-q2",
     "imageField": "image_url",
+    "tailImageField": "end_image_url",
     "hasPrompt": true,
     "inputs": {
       "prompt": {
@@ -7001,6 +7002,7 @@ export const i2vModels = [
     "endpoint": "vidu-q2-pro-start-end-video",
     "family": "vidu-q2",
     "imageField": "image_url",
+    "tailImageField": "end_image_url",
     "hasPrompt": true,
     "inputs": {
       "prompt": {
@@ -7620,6 +7622,7 @@ export const i2vModels = [
     "endpoint": "seedance-v1.5-pro-i2v",
     "family": "seedance-v1.5-pro",
     "imageField": "image_url",
+    "tailImageField": "tail_image_url",
     "hasPrompt": true,
     "inputs": {
       "prompt": {
@@ -7690,6 +7693,7 @@ export const i2vModels = [
     "endpoint": "seedance-v1.5-pro-i2v-fast",
     "family": "seedance-v1.5-pro",
     "imageField": "image_url",
+    "tailImageField": "tail_image_url",
     "hasPrompt": true,
     "inputs": {
       "prompt": {
@@ -7800,6 +7804,7 @@ export const i2vModels = [
     "endpoint": "kling-v3.0-pro-image-to-video",
     "family": "kling-v3.0",
     "imageField": "image_url",
+    "tailImageField": "tail_image",
     "hasPrompt": true,
     "inputs": {
       "prompt": {
@@ -7836,6 +7841,7 @@ export const i2vModels = [
     "endpoint": "kling-v3.0-standard-image-to-video",
     "family": "kling-v3.0",
     "imageField": "image_url",
+    "tailImageField": "tail_image",
     "hasPrompt": true,
     "inputs": {
       "prompt": {
@@ -7947,4 +7953,60 @@ export const getQualityFieldForI2IModel = (modelId) => {
 export const getMaxImagesForI2IModel = (modelId) => {
     const model = getI2IModelById(modelId);
     return model?.maxImages || 1;
+};
+
+// Returns the maximum number of images an i2v model accepts (defaults to 1)
+export const getMaxImagesForI2VModel = (modelId) => {
+    const model = getI2VModelById(modelId);
+    if (!model) return 1;
+    if (model.imageField === 'images_list') return model.maxImages || 5;
+    return 1;
+};
+
+// Returns extra input fields for an i2v model (beyond prompt/image/aspect_ratio/duration/resolution)
+export const getExtraInputsForI2VModel = (modelId) => {
+    const model = getI2VModelById(modelId);
+    if (!model || !model.inputs) return {};
+    const skip = new Set(['prompt', 'aspect_ratio', 'duration', 'resolution', 'quality']);
+    const extras = {};
+    for (const [key, val] of Object.entries(model.inputs)) {
+        if (!skip.has(key)) extras[key] = val;
+    }
+    return extras;
+};
+
+// Returns whether an i2v model requires prompt
+export const i2vModelHasPrompt = (modelId) => {
+    const model = getI2VModelById(modelId);
+    return model?.hasPrompt !== false;
+};
+
+// Returns the tail/end image field name for an i2v model (e.g. tail_image, end_image_url)
+export const getTailImageFieldForI2VModel = (modelId) => {
+    const model = getI2VModelById(modelId);
+    return model?.tailImageField || null;
+};
+
+// Returns the image field name for an i2v model
+export const getImageFieldForI2VModel = (modelId) => {
+    const model = getI2VModelById(modelId);
+    return model?.imageField || 'image_url';
+};
+
+// Returns the image field name for an i2i model
+export const getImageFieldForI2IModel = (modelId) => {
+    const model = getI2IModelById(modelId);
+    return model?.imageField || 'image_url';
+};
+
+// Returns extra input fields for an i2i model
+export const getExtraInputsForI2IModel = (modelId) => {
+    const model = getI2IModelById(modelId);
+    if (!model || !model.inputs) return {};
+    const skip = new Set(['prompt', 'aspect_ratio', 'resolution', 'quality']);
+    const extras = {};
+    for (const [key, val] of Object.entries(model.inputs)) {
+        if (!skip.has(key)) extras[key] = val;
+    }
+    return extras;
 };

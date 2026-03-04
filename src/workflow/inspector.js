@@ -3,6 +3,7 @@ import {
   getAspectRatiosForModel, getAspectRatiosForVideoModel,
   getResolutionsForModel, getResolutionsForVideoModel,
   getQualityFieldForModel,
+  getI2VModelById, getMaxImagesForI2VModel, getTailImageFieldForI2VModel,
 } from '../lib/models.js';
 
 export function createInspector(canvas) {
@@ -40,9 +41,25 @@ export function createInspector(canvas) {
     // Generic: render widgets from node.properties
     if (node.properties) {
       Object.entries(node.properties).forEach(([key, value]) => {
+        // Skip 'extras' — render sub-fields from _extraInputDefs instead
+        if (key === 'extras') return;
         const field = createField(key, value, node);
         if (field) el.appendChild(field);
       });
+
+      // Render extra model-specific fields (e.g. camera_fixed)
+      if (node._extraInputDefs && node.properties.extras) {
+        for (const [key, def] of Object.entries(node._extraInputDefs)) {
+          const field = createExtraField(key, def, node);
+          if (field) el.appendChild(field);
+        }
+      }
+
+      // Render model capabilities info for generator nodes
+      if (node._capabilities) {
+        const info = createCapabilitiesInfo(node);
+        if (info) el.appendChild(info);
+      }
     }
   }
 
@@ -74,10 +91,14 @@ export function createInspector(canvas) {
         const option = document.createElement('option');
         option.value = opt;
         option.textContent = opt;
-        if (opt === value) option.selected = true;
+        if (String(opt) === String(value)) option.selected = true;
         select.appendChild(option);
       });
-      select.onchange = () => { node.properties[key] = select.value; };
+      select.onchange = () => {
+        // Preserve number type for numeric enums (e.g. duration: [5, 10])
+        const raw = select.value;
+        node.properties[key] = isNaN(raw) ? raw : Number(raw);
+      };
       wrap.appendChild(select);
       return wrap;
     }
@@ -125,6 +146,67 @@ export function createInspector(canvas) {
     return null;
   }
 
+  function createExtraField(key, def, node) {
+    const wrap = document.createElement('div');
+    wrap.className = 'inspector-field';
+
+    const label = document.createElement('div');
+    label.className = 'inspector-label';
+    label.textContent = def.title || key.replace(/_/g, ' ');
+    wrap.appendChild(label);
+
+    const value = node.properties.extras[key];
+
+    // Enum select
+    if (def.enum) {
+      const select = document.createElement('select');
+      def.enum.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        if (String(opt) === String(value)) option.selected = true;
+        select.appendChild(option);
+      });
+      select.onchange = () => {
+        node.properties.extras[key] = def.type === 'int' ? parseInt(select.value) : select.value;
+      };
+      wrap.appendChild(select);
+      return wrap;
+    }
+
+    // Boolean
+    if (def.type === 'boolean') {
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !!value;
+      cb.onchange = () => { node.properties.extras[key] = cb.checked; };
+      wrap.appendChild(cb);
+      return wrap;
+    }
+
+    // Number with range
+    if (def.type === 'int' || def.type === 'number' || def.type === 'float') {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.value = value ?? def.default ?? '';
+      if (def.minValue !== undefined) input.min = def.minValue;
+      if (def.maxValue !== undefined) input.max = def.maxValue;
+      if (def.step !== undefined) input.step = def.step;
+      input.onchange = () => { node.properties.extras[key] = parseFloat(input.value) || 0; };
+      wrap.appendChild(input);
+      return wrap;
+    }
+
+    // Default string
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value ?? def.default ?? '';
+    input.placeholder = def.description || '';
+    input.oninput = () => { node.properties.extras[key] = input.value; };
+    wrap.appendChild(input);
+    return wrap;
+  }
+
   // Hook into canvas selection
   const origSelect = canvas.processNodeSelected;
   canvas.processNodeSelected = function(node) {
@@ -140,6 +222,56 @@ export function createInspector(canvas) {
   };
 
   return el;
+}
+
+function createCapabilitiesInfo(node) {
+  const caps = node._capabilities;
+  if (!caps) return null;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'inspector-info';
+
+  const title = document.createElement('div');
+  title.className = 'inspector-info-title';
+  title.textContent = 'Model Capabilities';
+  wrap.appendChild(title);
+
+  const lines = [];
+
+  if (caps.isI2V) {
+    lines.push('Type: I2V (Image \u2192 Video)');
+    if (caps.maxImages > 1) {
+      lines.push(`Image Input: Up to ${caps.maxImages} references`);
+    } else {
+      lines.push('Image Input: Single reference');
+    }
+  } else {
+    lines.push('Type: T2V (Text \u2192 Video)');
+  }
+
+  if (caps.hasTailImage) {
+    lines.push('End Frame: Supported <span class="check">\u2713</span>');
+  }
+
+  // Show extra toggles from _extraInputDefs
+  if (node._extraInputDefs) {
+    for (const [key, def] of Object.entries(node._extraInputDefs)) {
+      const label = def.title || key.replace(/_/g, ' ');
+      if (def.type === 'boolean') {
+        lines.push(`${label}: Toggle available`);
+      } else if (def.enum) {
+        lines.push(`${label}: ${def.enum.length} options`);
+      }
+    }
+  }
+
+  lines.forEach(l => {
+    const div = document.createElement('div');
+    div.innerHTML = l;
+    wrap.appendChild(div);
+  });
+
+  return wrap;
 }
 
 function createSearchableSelect(models, currentValue, onChange) {

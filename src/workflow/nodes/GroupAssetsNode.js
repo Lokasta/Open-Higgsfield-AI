@@ -45,10 +45,16 @@ export function registerGroupAssetsNode() {
 
   GroupAssetsNode.prototype.onWorkflowExecute = function(inputs) {
     const items = [];
-    if (inputs.item_1) items.push(inputs.item_1);
-    if (inputs.item_2) items.push(inputs.item_2);
-    if (inputs.item_3) items.push(inputs.item_3);
-    if (inputs.item_4) items.push(inputs.item_4);
+    for (const key of ['item_1', 'item_2', 'item_3', 'item_4']) {
+      const val = inputs[key];
+      if (!val) continue;
+      // Flatten arrays (e.g. an InputImage's "images" output is already an array of URLs)
+      if (Array.isArray(val)) {
+        items.push(...val);
+      } else {
+        items.push(val);
+      }
+    }
     return { collection: items, count: items.length };
   };
 

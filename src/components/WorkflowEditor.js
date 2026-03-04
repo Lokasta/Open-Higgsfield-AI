@@ -272,6 +272,56 @@ export async function WorkflowEditor() {
         }
       }
 
+      // Asset library drag: drop asset URL onto a node or create input node
+      const assetUrl = e.dataTransfer.getData('workflow/asset-url');
+      if (assetUrl) {
+        const assetType = e.dataTransfer.getData('workflow/asset-type') || 'image';
+        const targetNode = graph.getNodeOnPos(pos[0], pos[1]);
+
+        // If dropped on an input node that accepts this type, add to it
+        if (targetNode && targetNode.type === 'input/image' && assetType === 'image') {
+          if (!targetNode.properties.multi) {
+            targetNode.properties.urls = [assetUrl];
+            targetNode.properties.filenames = ['asset'];
+            targetNode._imgs = [];
+          } else {
+            targetNode.properties.urls.push(assetUrl);
+            targetNode.properties.filenames.push('asset');
+          }
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => targetNode.setDirtyCanvas(true);
+          img.src = assetUrl;
+          const idx = targetNode.properties.urls.length - 1;
+          targetNode._imgs[idx] = img;
+          targetNode.setDirtyCanvas(true);
+          return;
+        }
+
+        // Drop on empty canvas: create appropriate input node
+        const nodeTypeMap = { image: 'input/image', video: 'input/video', audio: 'input/audio' };
+        const newNodeType = nodeTypeMap[assetType];
+        if (newNodeType) {
+          const newNode = LiteGraph.createNode(newNodeType);
+          if (newNode) {
+            newNode.pos = [pos[0], pos[1]];
+            graph.add(newNode);
+            if (assetType === 'image') {
+              newNode.properties.urls = [assetUrl];
+              newNode.properties.filenames = ['asset'];
+              const img = new Image();
+              img.crossOrigin = 'anonymous';
+              img.onload = () => newNode.setDirtyCanvas(true);
+              img.src = assetUrl;
+              newNode._imgs = [img];
+            } else if (newNode.properties) {
+              newNode.properties.url = assetUrl;
+            }
+          }
+        }
+        return;
+      }
+
       // Palette drag: create node by type
       const nodeType = e.dataTransfer.getData('litegraph/nodetype');
       if (!nodeType) return;

@@ -1,4 +1,10 @@
-import { t2iModels, i2iModels, getAspectRatiosForModel, getAspectRatiosForI2IModel, getResolutionsForModel, getQualityFieldForModel, getI2IModelById } from '../../lib/models.js';
+import {
+  t2iModels, i2iModels,
+  getAspectRatiosForModel, getAspectRatiosForI2IModel,
+  getResolutionsForModel, getQualityFieldForModel,
+  getI2IModelById, getMaxImagesForI2IModel,
+  getResolutionsForI2IModel, getQualityFieldForI2IModel,
+} from '../../lib/models.js';
 import { drawHeader, handleHeaderClick, handleHeaderMove, handleTitleDblClick, getContentY } from '../nodeHeader.js';
 import { drawPreview, handlePreviewClick, handlePreviewMove } from '../nodePreview.js';
 
@@ -24,9 +30,7 @@ export function registerImageGeneratorNode() {
     this._previewInfoLines = 2;
 
     this._modelList = [...t2iModels, ...i2iModels];
-    this._enums = {
-      aspect_ratio: getAspectRatiosForModel(this.properties.model),
-    };
+    this._enums = {};
     this._updateEnums();
   }
 
@@ -34,15 +38,27 @@ export function registerImageGeneratorNode() {
   ImageGeneratorNode.desc = 'Generate images using AI models (t2i/i2i)';
 
   ImageGeneratorNode.prototype._updateEnums = function() {
-    const ars = getAspectRatiosForModel(this.properties.model) || getAspectRatiosForI2IModel(this.properties.model);
-    this._enums = {
-      aspect_ratio: ars || ['1:1', '16:9', '9:16', '4:3'],
-    };
-    const resolutions = getResolutionsForModel(this.properties.model);
-    if (resolutions && resolutions.length) {
-      const qField = getQualityFieldForModel(this.properties.model);
-      if (qField === 'resolution') this._enums.resolution = resolutions;
-      else if (qField === 'quality') this._enums.quality = resolutions;
+    const modelId = this.properties.model;
+    const isI2I = !!getI2IModelById(modelId);
+
+    if (isI2I) {
+      const ars = getAspectRatiosForI2IModel(modelId);
+      this._enums = { aspect_ratio: ars || ['1:1', '16:9', '9:16', '4:3'] };
+      const resolutions = getResolutionsForI2IModel(modelId);
+      if (resolutions && resolutions.length) {
+        const qField = getQualityFieldForI2IModel(modelId);
+        if (qField === 'resolution') this._enums.resolution = resolutions;
+        else if (qField === 'quality') this._enums.quality = resolutions;
+      }
+    } else {
+      const ars = getAspectRatiosForModel(modelId) || getAspectRatiosForI2IModel(modelId);
+      this._enums = { aspect_ratio: ars || ['1:1', '16:9', '9:16', '4:3'] };
+      const resolutions = getResolutionsForModel(modelId);
+      if (resolutions && resolutions.length) {
+        const qField = getQualityFieldForModel(modelId);
+        if (qField === 'resolution') this._enums.resolution = resolutions;
+        else if (qField === 'quality') this._enums.quality = resolutions;
+      }
     }
   };
 
@@ -60,10 +76,19 @@ export function registerImageGeneratorNode() {
 
     const y0 = getContentY(this);
     const model = this._modelList.find(m => m.id === this.properties.model);
+
     ctx.fillStyle = '#71717a';
     ctx.font = '10px Inter, system-ui, sans-serif';
     ctx.fillText(`Model: ${model?.name || this.properties.model}`, 10, y0);
-    ctx.fillText(`AR: ${this.properties.aspect_ratio}`, 10, y0 + 14);
+
+    let infoLine = `AR: ${this.properties.aspect_ratio}`;
+    // Show max refs for i2i models or models with edit variant
+    const i2iModel = getI2IModelById(this.properties.model) || getI2IModelById(this.properties.model + '-edit');
+    if (i2iModel) {
+      const maxImgs = i2iModel.maxImages || 1;
+      if (maxImgs > 1) infoLine += ` | Refs: ${maxImgs}`;
+    }
+    ctx.fillText(infoLine, 10, y0 + 14);
 
     // Preview with overlay buttons
     drawPreview(ctx, this);
@@ -93,12 +118,12 @@ export function registerImageGeneratorNode() {
   };
 
   ImageGeneratorNode.prototype.onWorkflowExecute = async function(inputs, muapi, signal) {
-    const prompt = inputs.prompt || '';
+    const promptText = inputs.prompt || '';
     const imageUrl = inputs.image || '';
     const imagesList = inputs.images || [];
     const params = {
       model: this.properties.model,
-      prompt,
+      prompt: promptText,
       aspect_ratio: this.properties.aspect_ratio,
     };
     if (this.properties.resolution) params.resolution = this.properties.resolution;
@@ -106,23 +131,24 @@ export function registerImageGeneratorNode() {
 
     let result;
     if (imagesList.length > 0 || imageUrl) {
-      if (imagesList.length > 1) {
-        params.images_list = imagesList;
+      // Collect all images
+      const allImages = imagesList.length > 0 ? [...imagesList] : [];
+      if (imageUrl && !allImages.includes(imageUrl)) allImages.unshift(imageUrl);
+
+      if (allImages.length > 1) {
+        params.images_list = allImages;
       } else {
-        params.image_url = imagesList[0] || imageUrl;
+        params.image_url = allImages[0];
       }
 
-      // If the selected model is a t2i model (not found in i2iModels),
-      // try to find a matching i2i variant before calling generateI2I.
+      // If the selected model is a t2i model, try to find a matching i2i variant
       const isI2IModel = !!getI2IModelById(params.model);
       if (!isI2IModel) {
-        // Try common i2i variant naming: "{id}-edit"
         const editVariant = getI2IModelById(params.model + '-edit');
         if (editVariant) {
           params.model = editVariant.id;
           result = await muapi.generateI2I(params);
         } else {
-          // No i2i variant found — fall back to t2i endpoint with image_url
           result = await muapi.generateImage(params);
         }
       } else {
@@ -150,6 +176,8 @@ export function registerImageGeneratorNode() {
   };
 
   ImageGeneratorNode.prototype.onConfigure = function(data) {
+    this._updateEnums();
+
     if (data._previewUrl) {
       this._previewUrl = data._previewUrl;
       this._previewType = data._previewType || 'image';

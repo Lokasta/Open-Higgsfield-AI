@@ -97,7 +97,7 @@ export class MuapiClient {
 
             // Step 2: Poll for results
             console.log('[Muapi] Polling for results, request_id:', requestId);
-            const result = await this.pollForResult(requestId, key);
+            const result = await this.pollForResult(requestId, key, 120, 2000);
 
             // Normalize: extract image URL from outputs array
             const imageUrl = result.outputs?.[0] || result.url || result.output?.url;
@@ -275,7 +275,7 @@ export class MuapiClient {
             const requestId = submitData.request_id || submitData.id;
             if (!requestId) return submitData;
 
-            const result = await this.pollForResult(requestId, key);
+            const result = await this.pollForResult(requestId, key, 120, 2000);
             const imageUrl = result.outputs?.[0] || result.url || result.output?.url;
             console.log('[Muapi] I2I Result URL:', imageUrl);
             return { ...result, url: imageUrl };
@@ -306,13 +306,14 @@ export class MuapiClient {
 
         if (params.prompt) finalPayload.prompt = params.prompt;
 
-        // Place image in the correct field for this model
+        // Place image(s) in the correct field for this model
         const imageField = modelInfo?.imageField || 'image_url';
-        if (params.image_url) {
+        const imagesList = params.images_list?.length > 0 ? params.images_list : (params.image_url ? [params.image_url] : null);
+        if (imagesList) {
             if (imageField === 'images_list') {
-                finalPayload.images_list = [params.image_url];
+                finalPayload.images_list = imagesList;
             } else {
-                finalPayload[imageField] = params.image_url;
+                finalPayload[imageField] = imagesList[0];
             }
         }
 
@@ -320,6 +321,19 @@ export class MuapiClient {
         if (params.duration) finalPayload.duration = params.duration;
         if (params.resolution) finalPayload.resolution = params.resolution;
         if (params.quality) finalPayload.quality = params.quality;
+
+        // Tail/end frame image
+        const tailField = modelInfo?.tailImageField;
+        if (tailField && params.tail_image_url) {
+            finalPayload[tailField] = params.tail_image_url;
+        }
+
+        // Extra model-specific parameters
+        if (params.extras) {
+            for (const [k, v] of Object.entries(params.extras)) {
+                if (v !== undefined && v !== '' && v !== null) finalPayload[k] = v;
+            }
+        }
 
         console.log('[Muapi] I2V Request:', url);
         console.log('[Muapi] I2V Payload:', finalPayload);
@@ -348,6 +362,68 @@ export class MuapiClient {
             return { ...result, url: videoUrl };
         } catch (error) {
             console.error('Muapi I2V Error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Calls an LLM for chat completion via muapi.
+     * @param {Object} params
+     * @param {string} params.model - LLM model id (e.g. gpt-4o, claude-sonnet)
+     * @param {string} params.prompt - User prompt
+     * @param {string} [params.system_prompt] - System prompt
+     * @param {number} [params.temperature] - Sampling temperature
+     * @param {boolean} [params.json_mode] - Request JSON output
+     */
+    async generateChat(params) {
+        const key = this.getKey();
+        const endpoint = params.endpoint || params.model;
+        const url = `${this.baseUrl}/api/v1/${endpoint}`;
+
+        const finalPayload = {
+            prompt: params.prompt,
+        };
+
+        if (params.system_prompt) finalPayload.system_prompt = params.system_prompt;
+        if (params.temperature !== undefined) finalPayload.temperature = params.temperature;
+
+        console.log('[Muapi] Chat Request:', url);
+        console.log('[Muapi] Chat Payload:', finalPayload);
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': key
+                },
+                body: JSON.stringify(finalPayload)
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`API Request Failed: ${response.status} ${response.statusText} - ${errText.slice(0, 200)}`);
+            }
+
+            const submitData = await response.json();
+            console.log('[Muapi] Chat Submit Response:', submitData);
+
+            const requestId = submitData.request_id || submitData.id;
+            if (!requestId) {
+                // Direct response
+                const text = submitData.text || submitData.output || submitData.content ||
+                    submitData.choices?.[0]?.message?.content || JSON.stringify(submitData);
+                return { text };
+            }
+
+            const result = await this.pollForResult(requestId, key);
+            console.log('[Muapi] Chat Poll Result:', JSON.stringify(result).slice(0, 500));
+            const text = result.text || result.output || result.content ||
+                result.outputs?.[0] || result.choices?.[0]?.message?.content || '';
+            console.log('[Muapi] Chat Extracted Text:', text?.slice?.(0, 300));
+            return { ...result, text };
+        } catch (error) {
+            console.error('Muapi Chat Error:', error);
             throw error;
         }
     }

@@ -12,6 +12,7 @@ import { registerPromptBuilderNode } from './PromptBuilderNode.js';
 import { registerIfElseNode } from './IfElseNode.js';
 import { registerToolsNode } from './ToolsNode.js';
 import { registerGroupAssetsNode } from './GroupAssetsNode.js';
+import { registerSceneSplitterNode } from './SceneSplitterNode.js';
 
 export function registerAllNodes() {
   // Input nodes
@@ -33,4 +34,5 @@ export function registerAllNodes() {
   registerIfElseNode();
   registerToolsNode();
   registerGroupAssetsNode();
+  registerSceneSplitterNode();
 }

@@ -33,8 +33,8 @@ function getVisibleButtons(node) {
   if (node.flags.collapsed) {
     return BUTTONS.filter(b => b.id === 'collapse');
   }
-  const isGenerator = node.type?.startsWith('generator/');
-  return BUTTONS.filter(b => !b.generatorOnly || isGenerator);
+  const canRun = node.type?.startsWith('generator/') || typeof node.onWorkflowExecute === 'function';
+  return BUTTONS.filter(b => !b.generatorOnly || canRun);
 }
 
 function getNodeWidth(node) {
@@ -205,6 +205,8 @@ async function runSingleNode(node) {
     if (typeof upstream.onWorkflowExecute !== 'function') continue;
     // Only auto-run "cheap" nodes (inputs, utilities) — not other generators
     if (upstream.type.startsWith('generator/') && upstream !== node) continue;
+    // Skip upstream nodes that already have outputs (avoid re-calling expensive APIs)
+    if (upstream._wfOutputs && Object.keys(upstream._wfOutputs).length > 0) continue;
     try {
       upstream._wfStatus = 'running';
       upstream.setDirtyCanvas(true, true);
